@@ -2,6 +2,8 @@ const express = require("express");
 const router = express.Router();
 const Session = require("../models/Session");
 const QRCode = require("qrcode");
+const Doubt = require("../models/Doubt");
+const Result = require("../models/Result");
 
 function generateSessionCode(subject) {
   const prefix = subject.substring(0, 4).toUpperCase();
@@ -81,6 +83,74 @@ router.put("/:id/close", async (req, res) => {
     res.status(500).json({
       message: error.message,
     });
+  }
+});
+// Get Session Statistics
+router.get("/:code/stats", async (req, res) => {
+  try {
+
+    const session = await Session.findOne({
+      sessionCode: req.params.code
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        message: "Session not found"
+      });
+    }
+
+   const totalDoubts = await Doubt.countDocuments({
+  sessionCode: req.params.code
+});
+
+const answeredDoubts = await Doubt.countDocuments({
+  sessionCode: req.params.code,
+  status: "Answered"
+});
+
+const pendingDoubts = await Doubt.countDocuments({
+  sessionCode: req.params.code,
+  status: "Pending"
+});
+const quizAttempts = await Result.countDocuments({
+  sessionCode: req.params.code
+});
+
+const students = await Result.distinct(
+  "studentName",
+  {
+    sessionCode: req.params.code
+  }
+);
+
+res.json({
+
+  sessionName: session.sessionName,
+
+  subject: session.subject,
+
+  sessionCode: session.sessionCode,
+
+  status: session.isActive ? "Active" : "Closed",
+
+  totalStudents: students.length,
+
+  totalDoubts,
+
+  answeredDoubts,
+
+  pendingDoubts,
+
+  quizAttempts
+
+});
+
+  } catch (error) {
+
+    res.status(500).json({
+      message: error.message
+    });
+
   }
 });
 
