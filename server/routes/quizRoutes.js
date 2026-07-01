@@ -1,6 +1,7 @@
 const express = require("express");
 const router = express.Router();
 const Quiz = require("../models/Quiz");
+const Session = require("../models/Session");
 
 router.post("/", async (req, res) => {
   try {
@@ -32,9 +33,40 @@ router.post("/", async (req, res) => {
   }
 });
 
+// Get Quiz for a Session
 router.get("/session/:sessionCode", async (req, res) => {
   try {
 
+    // Check if session exists
+    const session = await Session.findOne({
+      sessionCode: req.params.sessionCode
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        message: "Session not found"
+      });
+    }
+
+    // Check if session is active
+    if (!session.isActive) {
+      return res.status(400).json({
+        message: "Session is closed"
+      });
+    }
+
+    // Check if session has expired
+    if (new Date() > session.expiresAt) {
+
+      session.isActive = false;
+      await session.save();
+
+      return res.status(400).json({
+        message: "Session has expired"
+      });
+    }
+
+    // Find quiz
     const quiz = await Quiz.findOne({
       sessionCode: req.params.sessionCode
     });
@@ -42,6 +74,13 @@ router.get("/session/:sessionCode", async (req, res) => {
     if (!quiz) {
       return res.status(404).json({
         message: "Quiz not found"
+      });
+    }
+
+    // Check if teacher started the quiz
+    if (!quiz.isActive) {
+      return res.status(400).json({
+        message: "Quiz has not started yet"
       });
     }
 
