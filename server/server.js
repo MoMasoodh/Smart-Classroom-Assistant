@@ -7,6 +7,7 @@ const doubtRoutes = require("./routes/doubtRoutes");
 const sessionRoutes = require("./routes/sessionRoutes");
 const quizRoutes = require("./routes/quizRoutes");
 const resultRoutes = require("./routes/resultRoutes");
+const aiRoutes = require("./routes/aiRoutes");
 
 const app = express();
 
@@ -17,6 +18,7 @@ app.use("/api/doubts", doubtRoutes);
 app.use("/api/sessions", sessionRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/results", resultRoutes);
+app.use("/api/ai", aiRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("MongoDB Connected"));
