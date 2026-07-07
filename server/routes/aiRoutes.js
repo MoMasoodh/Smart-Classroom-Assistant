@@ -1,7 +1,10 @@
 const express = require("express");
 const router = express.Router();
 
-const { generateAnswer } = require("../services/geminiService");
+const {
+  generateAnswer,
+  generateQuiz
+} = require("../services/geminiService");
 
 // Generate AI Answer
 router.post("/generate-answer", async (req, res) => {
@@ -20,6 +23,43 @@ router.post("/generate-answer", async (req, res) => {
     res.json({
       success: true,
       answer
+    });
+
+  } catch (error) {
+
+    console.error(error);
+
+    res.status(500).json({
+      success: false,
+      message: error.message
+    });
+
+  }
+});
+
+// Generate AI Quiz
+router.post("/generate-quiz", async (req, res) => {
+  try {
+
+    const {
+      topic,
+      numberOfQuestions
+    } = req.body;
+
+    if (!topic) {
+      return res.status(400).json({
+        message: "Topic is required"
+      });
+    }
+
+    const quiz = await generateQuiz(
+      topic,
+      numberOfQuestions || 5
+    );
+
+    res.json({
+      success: true,
+      quiz
     });
 
   } catch (error) {
