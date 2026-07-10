@@ -1,0 +1,27 @@
+.header{
+
+    margin-left:250px;
+
+    padding:25px 40px;
+
+    background:white;
+
+    box-shadow:0 2px 10px rgba(0,0,0,.08);
+
+}
+
+.header h1{
+
+    margin:0;
+
+    color:#1E293B;
+
+}
+
+.header p{
+
+    margin-top:8px;
+
+    color:gray;
+
+}
