@@ -1,59 +1,113 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate,useLocation  } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DashboardCard from "../components/DashboardCard";
 
+import "./StudentDashboard.css";
+
 function StudentDashboard() {
-  return (
-    <>
-      <Sidebar />
 
-      <Header
-        title="Student Dashboard"
-        subtitle="Welcome, Mohamed"
-      />
+   const navigate = useNavigate();
+const location = useLocation();
 
-      <div
-        style={{
-          marginLeft: "270px",
-          padding: "30px",
-          display: "grid",
-          gridTemplateColumns: "repeat(2, 1fr)",
-          gap: "20px",
-        }}
-      >
-        <DashboardCard
-          icon="❓"
-          title="Ask Doubt"
-          description="Submit your doubts to the teacher."
-        />
+const studentName = location.state?.studentName || "Student";
+const session = location.state?.session;
 
-        <DashboardCard
-          icon="📋"
-          title="My Doubts"
-          description="View your submitted doubts."
-        />
+    return (
 
-        <DashboardCard
-          icon="💬"
-          title="Discussion"
-          description="View answered class doubts."
-        />
+        <>
 
-        <DashboardCard
-          icon="📝"
-          title="Quiz"
-          description="Attend the current quiz."
-        />
+            <Sidebar />
 
-        <DashboardCard
-          icon="🏆"
-          title="Leaderboard"
-          description="View class rankings."
-        />
-      </div>
-    </>
-  );
+            <Header
+    title="Student Dashboard"
+    subtitle={`Welcome, ${studentName}`}
+/>
+
+            <div className="student-dashboard">
+
+               <DashboardCard
+    icon="❓"
+    title="Ask Doubt"
+    description="Submit your doubts to the teacher."
+    onClick={() =>
+        navigate("/ask-doubt", {
+            state: {
+                studentName,
+                session
+            }
+        })
+    }
+/>
+
+                <DashboardCard
+    icon="📋"
+    title="My Doubts"
+    description="View all your submitted doubts."
+    onClick={() =>
+        navigate("/my-doubts", {
+            state: {
+                studentName,
+                session
+            }
+        })
+    }
+/>
+                <DashboardCard
+    icon="💬"
+    title="Discussion"
+    description="View answered classroom doubts."
+    onClick={() =>
+        navigate("/discussion", {
+            state: {
+                studentName,
+                session
+            }
+        })
+    }
+/>
+
+                <DashboardCard
+    icon="📝"
+    title="Quiz"
+    description="Attend classroom quizzes."
+    onClick={() =>
+        navigate("/quiz", {
+            state: {
+                studentName,
+                session
+            }
+        })
+    }
+/>
+
+                <DashboardCard
+    icon="🏆"
+    title="Leaderboard"
+    description="View class rankings."
+    onClick={() =>
+        navigate("/leaderboard", {
+            state: {
+                studentName,
+                session
+            }
+        })
+    }
+/>
+
+                <DashboardCard
+    icon="🚪"
+    title="Leave Session"
+    description="Return to Home Page."
+    onClick={() => navigate("/")}
+/>
+
+            </div>
+
+        </>
+
+    );
+
 }
 
 export default StudentDashboard;

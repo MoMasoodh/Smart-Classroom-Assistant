@@ -2,24 +2,24 @@ import "./DashboardCard.css";
 
 function DashboardCard({ icon, title, description, onClick }) {
 
-  return (
+    return (
 
-    <div
-      className="dashboard-card"
-      onClick={onClick}
-    >
+        <div
+            className="dashboard-card"
+            onClick={onClick}
+        >
 
-      <div className="card-icon">
-        {icon}
-      </div>
+            <div className="card-icon">
+                {icon}
+            </div>
 
-      <h2>{title}</h2>
+            <h2>{title}</h2>
 
-      <p>{description}</p>
+            <p>{description}</p>
 
-    </div>
+        </div>
 
-  );
+    );
 
 }
 

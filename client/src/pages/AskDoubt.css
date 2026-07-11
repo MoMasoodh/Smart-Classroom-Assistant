@@ -1,0 +1,96 @@
+.ask-page{
+
+    height:100vh;
+
+    display:flex;
+
+    justify-content:center;
+
+    align-items:center;
+
+    background:#f5f7fb;
+
+}
+
+.ask-card{
+
+    width:650px;
+
+    background:white;
+
+    padding:40px;
+
+    border-radius:15px;
+
+    box-shadow:0 8px 20px rgba(0,0,0,.1);
+
+}
+
+.ask-card h1{
+
+    text-align:center;
+
+    color:#2563eb;
+
+    margin-bottom:25px;
+
+}
+
+.ask-card p{
+
+    margin-bottom:10px;
+
+    color:#444;
+
+}
+
+.ask-card input,
+.ask-card textarea{
+
+    width:100%;
+
+    padding:12px;
+
+    margin-top:15px;
+
+    border-radius:8px;
+
+    border:1px solid #ccc;
+
+    box-sizing:border-box;
+
+}
+
+.ask-card textarea{
+
+    resize:none;
+
+}
+
+.ask-card button{
+
+    width:100%;
+
+    padding:12px;
+
+    margin-top:20px;
+
+    border:none;
+
+    border-radius:8px;
+
+    background:#2563eb;
+
+    color:white;
+
+    cursor:pointer;
+
+    font-size:16px;
+
+}
+
+.back-btn{
+
+    background:#6b7280 !important;
+
+}

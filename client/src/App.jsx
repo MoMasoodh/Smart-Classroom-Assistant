@@ -7,6 +7,10 @@ import QuizPage from "./pages/QuizPage";
 import Leaderboard from "./pages/Leaderboard";
 import Statistics from "./pages/Statistics";
 import StudentLogin from "./pages/StudentJoin";
+import TeacherLogin from "./pages/TeacherLogin";
+import CreateSession from "./pages/CreateSession";
+import MySessions from "./pages/MySessions";
+import AskDoubt from "./pages/AskDoubt";
 
 import "./styles/App.css";
 
@@ -20,6 +24,10 @@ function App() {
       <Route path="/leaderboard" element={<Leaderboard />} />
       <Route path="/statistics" element={<Statistics />} />
       <Route path="/student-login"element={<StudentLogin />}/>
+      <Route path="/teacher-login" element={<TeacherLogin />}/>
+      <Route path="/create-session" element={<CreateSession />} />
+      <Route path="/my-sessions" element={<MySessions />} />
+      <Route path="/ask-doubt" element={<AskDoubt />} />
     </Routes>
   );
 }

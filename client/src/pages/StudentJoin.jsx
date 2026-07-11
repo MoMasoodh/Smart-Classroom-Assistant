@@ -1,47 +1,92 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
+import api from "../services/api";
 
 function StudentLogin() {
 
-  const [studentName, setStudentName] = useState("");
-  const [sessionCode, setSessionCode] = useState("");
+    const navigate = useNavigate();
 
-  const handleJoin = () => {
-    console.log(studentName);
-    console.log(sessionCode);
-  };
+    const [studentName, setStudentName] = useState("");
+    const [sessionCode, setSessionCode] = useState("");
 
-  return (
-    <div className="home">
+    const handleJoin = async () => {
 
-      <div className="card">
+        if (!studentName || !sessionCode) {
 
-        <h2>Join Classroom</h2>
+            alert("Please enter your name and session code.");
 
-        <input
-          type="text"
-          placeholder="Enter Your Name"
-          value={studentName}
-          onChange={(e) => setStudentName(e.target.value)}
-        />
+            return;
 
-        <input
-          type="text"
-          placeholder="Enter Session Code"
-          value={sessionCode}
-          onChange={(e) => setSessionCode(e.target.value)}
-        />
+        }
 
-        <button
-          className="join-btn"
-          onClick={handleJoin}
-        >
-          Join Session
-        </button>
+        try {
 
-      </div>
+            const response = await api.get(`/sessions/${sessionCode}`);
 
-    </div>
-  );
+            if (response.data.isActive) {
+
+                navigate("/student-dashboard", {
+    state: {
+        studentName: studentName,
+        session: response.data
+    }
+});
+
+            }
+
+            else {
+
+                alert("Session is closed.");
+
+            }
+
+        }
+
+        catch (error) {
+
+            alert("Invalid Session Code.");
+
+            console.log(error);
+
+        }
+
+    };
+
+    return (
+
+        <div className="home">
+
+            <div className="card">
+
+                <h2>Join Classroom</h2>
+
+                <input
+                    type="text"
+                    placeholder="Enter Your Name"
+                    value={studentName}
+                    onChange={(e) => setStudentName(e.target.value)}
+                />
+
+                <input
+                    type="text"
+                    placeholder="Enter Session Code"
+                    value={sessionCode}
+                    onChange={(e) => setSessionCode(e.target.value)}
+                />
+
+                <button
+                    className="join-btn"
+                    onClick={handleJoin}
+                >
+                    Join Session
+                </button>
+
+            </div>
+
+        </div>
+
+    );
+
 }
 
 export default StudentLogin;
