@@ -9,7 +9,7 @@ function AskDoubt() {
     const location = useLocation();
 
     const studentName = location.state?.studentName;
-    const sessionCode = location.state?.session?.sessionCode;
+    const session = location.state?.session;
 
     const [subject, setSubject] = useState("");
     const [question, setQuestion] = useState("");
@@ -32,7 +32,7 @@ function AskDoubt() {
 
                 studentName,
 
-                sessionCode,
+                sessionCode: session.sessionCode,
 
                 subject,
 
@@ -42,8 +42,17 @@ function AskDoubt() {
 
             alert("Doubt Submitted Successfully!");
 
-            setSubject("");
-            setQuestion("");
+            navigate("/student-dashboard",{
+
+                state:{
+
+                    studentName,
+
+                    session
+
+                }
+
+            });
 
         }
 
@@ -57,7 +66,7 @@ function AskDoubt() {
 
     };
 
-    return (
+    return(
 
         <div className="ask-page">
 
@@ -65,32 +74,34 @@ function AskDoubt() {
 
                 <h1>Ask Doubt</h1>
 
-                <p>
+                <h3>{studentName}</h3>
 
-                    Student : <strong>{studentName}</strong>
-
-                </p>
-
-                <p>
-
-                    Session : <strong>{sessionCode}</strong>
-
-                </p>
+                <p>Session : {session.sessionCode}</p>
 
                 <form onSubmit={submitDoubt}>
 
                     <input
+
                         type="text"
+
                         placeholder="Subject"
+
                         value={subject}
+
                         onChange={(e)=>setSubject(e.target.value)}
+
                     />
 
                     <textarea
-                        placeholder="Type your doubt here..."
-                        value={question}
-                        onChange={(e)=>setQuestion(e.target.value)}
+
                         rows="6"
+
+                        placeholder="Enter your doubt..."
+
+                        value={question}
+
+                        onChange={(e)=>setQuestion(e.target.value)}
+
                     />
 
                     <button type="submit">
@@ -100,15 +111,6 @@ function AskDoubt() {
                     </button>
 
                 </form>
-
-                <button
-                    className="back-btn"
-                    onClick={()=>navigate("/student-dashboard")}
-                >
-
-                    Back
-
-                </button>
 
             </div>
 

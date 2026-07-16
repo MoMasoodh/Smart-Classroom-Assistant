@@ -11,6 +11,8 @@ import TeacherLogin from "./pages/TeacherLogin";
 import CreateSession from "./pages/CreateSession";
 import MySessions from "./pages/MySessions";
 import AskDoubt from "./pages/AskDoubt";
+import MyDoubts from "./pages/MyDoubts";
+import PendingDoubts from "./pages/PendingDoubts";
 
 import "./styles/App.css";
 
@@ -28,6 +30,9 @@ function App() {
       <Route path="/create-session" element={<CreateSession />} />
       <Route path="/my-sessions" element={<MySessions />} />
       <Route path="/ask-doubt" element={<AskDoubt />} />
+      <Route path="/my-doubts" element={<MyDoubts />}/>
+      <Route path="/pending-doubts"element={<PendingDoubts />}/>
+   
     </Routes>
   );
 }
