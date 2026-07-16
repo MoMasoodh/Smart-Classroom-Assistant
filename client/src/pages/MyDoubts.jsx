@@ -1,6 +1,11 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
+import Sidebar from "../components/Sidebar";
+import Header from "../components/Header";
+import Loading from "../components/Loading";
+import DoubtCard from "../components/DoubtCard";
+import { getStudentProfile, getActiveSession } from "../services/storage";
 import "./MyDoubts.css";
 
 function MyDoubts() {
@@ -8,20 +13,30 @@ function MyDoubts() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const studentName = location.state?.studentName;
-    const session = location.state?.session;
+    const storedProfile = getStudentProfile();
+    const studentName = location.state?.studentName || storedProfile?.studentName || "Student";
+    const session = location.state?.session || storedProfile?.session || getActiveSession();
 
     const [doubts, setDoubts] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState("");
 
     useEffect(() => {
+        if (session?.sessionCode) {
+            fetchDoubts();
+        } else {
+            setLoading(false);
+            setError("Session not found.");
+        }
 
-        fetchDoubts();
-
-    }, []);
+    }, [session?.sessionCode]);
 
     const fetchDoubts = async () => {
 
         try {
+
+            setLoading(true);
+            setError("");
 
             const response = await api.get(
                 `/doubts/session/${session.sessionCode}`
@@ -39,7 +54,11 @@ function MyDoubts() {
 
             console.log(error);
 
-            alert("Unable to load doubts.");
+            setError(error.response?.data?.message || "Unable to load doubts.");
+
+        } finally {
+
+            setLoading(false);
 
         }
 
@@ -47,84 +66,59 @@ function MyDoubts() {
 
     return (
 
-        <div className="my-doubts-page">
+        <div className="app-page">
 
-            <h1>My Doubts</h1>
+            <Sidebar />
 
-            <button
-                className="back-btn"
-                onClick={() =>
-                    navigate("/student-dashboard", {
-                        state: {
-                            studentName,
-                            session
-                        }
-                    })
-                }
-            >
-                ← Back
-            </button>
+            <div className="content-with-sidebar">
 
-            {
-
-                doubts.length === 0 ?
-
-                (
-
-                    <p>No doubts submitted yet.</p>
-
-                )
-
-                :
-
-                (
-
-                    doubts.map((doubt) => (
-
-                        <div
-                            className="doubt-card"
-                            key={doubt._id}
+                <Header
+                    title="My Doubts"
+                    subtitle={session ? `Session ${session.sessionCode} · ${studentName}` : studentName}
+                    actions={
+                        <button
+                            className="secondary"
+                            onClick={() => navigate("/student-dashboard", { state: { studentName, session } })}
                         >
+                            Back to Dashboard
+                        </button>
+                    }
+                />
 
-                            <h3>{doubt.subject}</h3>
+                <main className="page-shell">
 
-                            <p>{doubt.question}</p>
+                    {loading ? <Loading label="Loading doubts" /> : null}
 
-                            <p>
-
-                                <strong>Status : </strong>
-
-                                {doubt.status}
-
-                            </p>
-
-                            {
-
-                                doubt.answer &&
-
-                                <>
-
-                                    <hr />
-
-                                    <p>
-
-                                        <strong>Teacher Answer</strong>
-
-                                    </p>
-
-                                    <p>{doubt.answer}</p>
-
-                                </>
-
-                            }
-
+                    {error ? (
+                        <div className="error-state">
+                            <strong>Unable to load doubts</strong>
+                            <p>{error}</p>
                         </div>
+                    ) : null}
 
-                    ))
+                    {!loading && !error && doubts.length === 0 ? (
+                        <div className="empty-state">
+                            <strong>No doubts submitted yet.</strong>
+                            <p>Ask your first question to see it appear here.</p>
+                            <button className="primary-button" onClick={() => navigate("/ask-doubt", { state: { studentName, session } })}>
+                                Ask Doubt
+                            </button>
+                        </div>
+                    ) : null}
 
-                )
+                    <div className="page-grid">
+                        {doubts.map((doubt) => (
+                            <DoubtCard
+                                key={doubt._id}
+                                doubt={doubt}
+                                readOnly
+                            />
+                        ))}
+                    </div>
 
-            }
+                </main>
+
+            </div>
 
         </div>
 

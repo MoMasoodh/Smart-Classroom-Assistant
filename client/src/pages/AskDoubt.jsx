@@ -1,6 +1,11 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
+import Sidebar from "../components/Sidebar";
+import Header from "../components/Header";
+import Toast from "../components/Toast";
+import Loading from "../components/Loading";
+import { getStudentProfile, getActiveSession } from "../services/storage";
 import "./AskDoubt.css";
 
 function AskDoubt() {
@@ -8,25 +13,31 @@ function AskDoubt() {
     const navigate = useNavigate();
     const location = useLocation();
 
-    const studentName = location.state?.studentName;
-    const session = location.state?.session;
+    const profile = getStudentProfile();
+    const studentName = location.state?.studentName || profile?.studentName || "Student";
+    const session = location.state?.session || profile?.session || getActiveSession();
 
     const [subject, setSubject] = useState("");
     const [question, setQuestion] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState("");
+    const [error, setError] = useState("");
 
     const submitDoubt = async (e) => {
 
         e.preventDefault();
 
         if (!subject || !question) {
-
-            alert("Please fill all fields.");
+            setError("Please fill all fields.");
 
             return;
 
         }
 
         try {
+
+            setLoading(true);
+            setError("");
 
             await api.post("/doubts", {
 
@@ -40,9 +51,9 @@ function AskDoubt() {
 
             });
 
-            alert("Doubt Submitted Successfully!");
+            setToast("Doubt Submitted");
 
-            navigate("/student-dashboard",{
+            navigate("/my-doubts",{
 
                 state:{
 
@@ -60,7 +71,11 @@ function AskDoubt() {
 
             console.log(error);
 
-            alert("Unable to submit doubt.");
+            setError(error.response?.data?.message || "Unable to submit doubt.");
+
+        } finally {
+
+            setLoading(false);
 
         }
 
@@ -68,51 +83,76 @@ function AskDoubt() {
 
     return(
 
-        <div className="ask-page">
+        <div className="app-page">
 
-            <div className="ask-card">
+            <Sidebar />
 
-                <h1>Ask Doubt</h1>
+            <div className="content-with-sidebar">
 
-                <h3>{studentName}</h3>
+                <Header
+                    title="Ask Doubt"
+                    subtitle={session ? `Session ${session.sessionCode} · ${studentName}` : studentName}
+                />
 
-                <p>Session : {session.sessionCode}</p>
+                <main className="page-shell">
 
-                <form onSubmit={submitDoubt}>
+                    <section className="form-card">
 
-                    <input
+                        <div className="page-hero">
+                            <span className="eyebrow">Student doubt</span>
+                            <h2 style={{ margin: "0.75rem 0 0.35rem" }}>Write a clear question and keep it short.</h2>
+                            <p style={{ margin: 0, color: "var(--muted)" }}>
+                                The teacher will see your doubt in the pending queue and can answer manually or with AI.
+                            </p>
+                        </div>
 
-                        type="text"
+                        <form onSubmit={submitDoubt} className="page-section">
 
-                        placeholder="Subject"
+                            <div className="field-grid">
+                                <input
+                                    type="text"
+                                    placeholder="Subject"
+                                    value={subject}
+                                    onChange={(e)=>setSubject(e.target.value)}
+                                />
 
-                        value={subject}
+                                <input
+                                    type="text"
+                                    value={studentName}
+                                    disabled
+                                />
+                            </div>
 
-                        onChange={(e)=>setSubject(e.target.value)}
+                            <textarea
+                                rows="7"
+                                placeholder="Enter your doubt..."
+                                value={question}
+                                onChange={(e)=>setQuestion(e.target.value)}
+                            />
 
-                    />
+                            {error ? <p className="error-text">{error}</p> : null}
 
-                    <textarea
+                            <div className="form-actions">
+                                <button type="button" className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName, session } })}>
+                                    Back to Dashboard
+                                </button>
 
-                        rows="6"
+                                <button className="primary-button" type="submit" disabled={loading}>
+                                    {loading ? "Submitting..." : "Submit Doubt"}
+                                </button>
+                            </div>
 
-                        placeholder="Enter your doubt..."
+                        </form>
 
-                        value={question}
+                        {loading ? <Loading label="Submitting doubt" /> : null}
 
-                        onChange={(e)=>setQuestion(e.target.value)}
+                    </section>
 
-                    />
-
-                    <button type="submit">
-
-                        Submit Doubt
-
-                    </button>
-
-                </form>
+                </main>
 
             </div>
+
+            <Toast message={toast} type="success" />
 
         </div>
 

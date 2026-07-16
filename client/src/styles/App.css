@@ -1,3 +1,119 @@
+/* Shared app layout primitives */
+.app-page {
+  min-height: 100vh;
+}
+
+.content-with-sidebar {
+  margin-left: 250px;
+}
+
+.page-hero {
+  display: grid;
+  gap: 1rem;
+  margin-bottom: 1.2rem;
+}
+
+.hero-card {
+  padding: 1.4rem;
+}
+
+.page-actions,
+.form-actions,
+.card-actions,
+.toolbar {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.form-grid,
+.stats-grid,
+.dashboard-grid,
+.card-grid,
+.leaderboard-grid {
+  display: grid;
+  gap: 1rem;
+}
+
+.dashboard-grid {
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.stats-grid {
+  grid-template-columns: repeat(auto-fit, minmax(190px, 1fr));
+}
+
+.card-grid {
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+}
+
+.form-card {
+  padding: 1.4rem;
+}
+
+.table-wrap {
+  overflow-x: auto;
+}
+
+.responsive-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.responsive-table th,
+.responsive-table td {
+  padding: 0.9rem;
+  border-bottom: 1px solid var(--border);
+  text-align: left;
+}
+
+.empty-state,
+.error-state,
+.success-state {
+  display: grid;
+  place-items: center;
+  gap: 0.65rem;
+  padding: 2.5rem 1rem;
+  text-align: center;
+  border-radius: var(--radius);
+  background: rgba(255, 255, 255, 0.92);
+  border: 1px solid var(--border);
+}
+
+.empty-state p,
+.error-state p,
+.success-state p {
+  margin: 0;
+  color: var(--muted);
+}
+
+.field-group {
+  display: grid;
+  gap: 0.65rem;
+}
+
+.field-grid {
+  display: grid;
+  gap: 0.9rem;
+  grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+}
+
+.page-section {
+  display: grid;
+  gap: 1rem;
+}
+
+.header-actions {
+  display: flex;
+  gap: 0.75rem;
+  flex-wrap: wrap;
+}
+
+@media (max-width: 900px) {
+  .content-with-sidebar {
+    margin-left: 0;
+  }
+}
 body {
   margin: 0;
   font-family: Arial, sans-serif;

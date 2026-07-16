@@ -1,40 +1,8 @@
-.student-dashboard-page{
-    display:flex;
-    min-height:100vh;
-    background:#f4f7fc;
+.student-dashboard-page {
+    display: block;
 }
 
-.dashboard-content{
-    margin-left:250px;
-    width:100%;
-}
-
-.student-dashboard{
-
-    padding:30px;
-
-    display:grid;
-
-    grid-template-columns:repeat(auto-fit,minmax(260px,1fr));
-
-    gap:25px;
-
-}
-
-@media(max-width:768px){
-
-    .dashboard-content{
-
-        margin-left:0;
-
-    }
-
-    .student-dashboard{
-
-        grid-template-columns:1fr;
-
-        padding:20px;
-
-    }
-
+.dashboard-content {
+    display: grid;
+    gap: 1rem;
 }

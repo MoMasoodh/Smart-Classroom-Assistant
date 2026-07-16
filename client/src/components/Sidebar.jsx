@@ -1,69 +1,48 @@
-import { Link } from "react-router-dom";
+import { NavLink } from "react-router-dom";
 import "./Sidebar.css";
 
 function Sidebar({ teacher = false }) {
+  const links = teacher
+    ? [
+        { to: "/teacher-dashboard", label: "Dashboard" },
+        { to: "/create-session", label: "Create Session" },
+        { to: "/my-sessions", label: "My Sessions" },
+        { to: "/pending-doubts", label: "Pending Doubts" },
+        { to: "/statistics", label: "Statistics" },
+      ]
+    : [
+        { to: "/student-dashboard", label: "Dashboard" },
+        { to: "/my-doubts", label: "My Doubts" },
+        { to: "/discussion", label: "Discussion" },
+        { to: "/quiz", label: "Quiz" },
+        { to: "/leaderboard", label: "Leaderboard" },
+      ];
+
   return (
-    <div className="sidebar">
+    <aside className="sidebar">
 
-      <h2 className="logo">
-        Smart Classroom
-      </h2>
+      <div className="sidebar-brand">
+        <h2 className="logo">Smart Classroom</h2>
+        <p>{teacher ? "Teacher workspace" : "Student workspace"}</p>
+      </div>
 
-      {!teacher ? (
-        <>
+      <nav className="sidebar-links">
+        {links.map((link) => (
+          <NavLink
+            key={link.to}
+            to={link.to}
+            className={({ isActive }) => `sidebar-link ${isActive ? "active" : ""}`}
+          >
+            {link.label}
+          </NavLink>
+        ))}
 
-          <Link to="/student-dashboard">
-            Dashboard
-          </Link>
+        <NavLink to="/" className="sidebar-link secondary">
+          {teacher ? "Logout" : "Leave Session"}
+        </NavLink>
+      </nav>
 
-          <Link to="/my-doubts">
-            My Doubts
-          </Link>
-
-          <Link to="/discussion">
-            Discussion
-          </Link>
-
-          <Link to="/quiz">
-            Quiz
-          </Link>
-
-          <Link to="/leaderboard">
-            Leaderboard
-          </Link>
-
-          <Link to="/">
-            Leave Session
-          </Link>
-
-        </>
-      ) : (
-        <>
-
-          <Link to="/teacher-dashboard">
-            Dashboard
-          </Link>
-
-          <Link to="/create-session">
-            Create Session
-          </Link>
-
-          <Link to="/my-sessions">
-            My Sessions
-          </Link>
-
-          <Link to="/statistics">
-            Statistics
-          </Link>
-
-          <Link to="/">
-            Logout
-          </Link>
-
-        </>
-      )}
-
-    </div>
+    </aside>
   );
 }
 

@@ -1,10 +1,10 @@
 import "./Header.css";
 
-function Header({ title, subtitle }) {
+function Header({ title, subtitle, actions }) {
 
   return (
 
-    <div className="header">
+    <header className="header">
 
       <div>
 
@@ -14,7 +14,9 @@ function Header({ title, subtitle }) {
 
       </div>
 
-    </div>
+      {actions ? <div className="header-actions">{actions}</div> : null}
+
+    </header>
 
   );
 

@@ -1,36 +1,45 @@
-.auth-page {
+.student-join-page {
     min-height: 100vh;
 }
 
-.login-page {
+.join-page {
     min-height: calc(100vh - 84px);
     display: grid;
     place-items: center;
     padding: 1.5rem;
 }
 
-.login-card {
-    width: min(100%, 460px);
+.join-card {
+    width: min(100%, 520px);
     padding: 1.5rem;
 }
 
-.login-card h1 {
-    margin: 0.55rem 0 0;
+.join-card h1 {
+    margin: 0.5rem 0 0;
     font-size: 2rem;
 }
 
-.login-subtitle {
-    margin: 0.5rem 0 1.2rem;
+.join-card p {
     color: var(--muted);
 }
 
-.auth-form {
+.join-form {
     display: grid;
     gap: 0.9rem;
+    margin-top: 1rem;
+}
+
+.join-meta {
+    display: grid;
+    gap: 0.65rem;
+    margin-top: 1rem;
+    padding: 1rem;
+    border-radius: 16px;
+    background: rgba(239, 244, 255, 0.8);
 }
 
 @media (max-width: 900px) {
-    .login-page {
+    .join-page {
         min-height: calc(100vh - 120px);
         padding: 1rem;
     }

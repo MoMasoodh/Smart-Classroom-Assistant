@@ -1,33 +1,50 @@
 import { useState } from "react";
+import { useNavigate } from "react-router-dom";
 import "./CreateSession.css";
 import api from "../services/api";
+import Sidebar from "../components/Sidebar";
+import Header from "../components/Header";
+import Toast from "../components/Toast";
+import Loading from "../components/Loading";
+import { saveStoredSession, setActiveSession } from "../services/storage";
 
 function CreateSession() {
+
+    const navigate = useNavigate();
 
     const [sessionName, setSessionName] = useState("");
     const [subject, setSubject] = useState("");
     const [duration, setDuration] = useState("");
 
     const [createdSession, setCreatedSession] = useState(null);
+    const [loading, setLoading] = useState(false);
+    const [toast, setToast] = useState("");
+    const [error, setError] = useState("");
 
     const createSession = async (e) => {
 
         e.preventDefault();
 
         if (!sessionName || !subject || !duration) {
-            alert("Please fill all fields.");
+            setError("Please fill all fields.");
             return;
         }
 
         try {
 
+            setLoading(true);
+            setError("");
+
             const response = await api.post("/sessions", {
                 sessionName,
                 subject,
-                duration
+                duration: Number(duration)
             });
 
             setCreatedSession(response.data);
+            saveStoredSession(response.data);
+            setActiveSession(response.data);
+            setToast("Session Created");
 
             setSessionName("");
             setSubject("");
@@ -37,7 +54,11 @@ function CreateSession() {
 
             console.error(error);
 
-            alert("Unable to create session.");
+            setError(error.response?.data?.message || "Unable to create session.");
+
+        } finally {
+
+            setLoading(false);
 
         }
 
@@ -45,84 +66,119 @@ function CreateSession() {
 
     return (
 
-        <div className="create-session">
+        <div className="app-page">
 
-            <div className="session-box">
+            <Sidebar teacher />
 
-                <h1>Create Session</h1>
+            <div className="content-with-sidebar">
 
-                <form onSubmit={createSession}>
+                <Header
+                    title="Create Session"
+                    subtitle="Create a classroom room, generate the QR code, and share the session code instantly."
+                    actions={
+                        <button className="secondary" onClick={() => navigate("/my-sessions")}>
+                            View My Sessions
+                        </button>
+                    }
+                />
 
-                    <input
-                        type="text"
-                        placeholder="Session Name"
-                        value={sessionName}
-                        onChange={(e) => setSessionName(e.target.value)}
-                    />
+                <main className="page-shell page-grid">
 
-                    <input
-                        type="text"
-                        placeholder="Subject"
-                        value={subject}
-                        onChange={(e) => setSubject(e.target.value)}
-                    />
+                    <section className="form-card">
 
-                    <input
-                        type="number"
-                        placeholder="Duration (Minutes)"
-                        value={duration}
-                        onChange={(e) => setDuration(e.target.value)}
-                    />
+                        <div className="page-hero">
+                            <div>
+                                <span className="eyebrow">Session setup</span>
+                                <h2 style={{ margin: "0.75rem 0 0.35rem" }}>Launch a new classroom in seconds.</h2>
+                                <p style={{ margin: 0, color: "var(--muted)" }}>
+                                    The backend will generate the session code and QR code automatically.
+                                </p>
+                            </div>
+                        </div>
 
-                    <button type="submit">
+                        <form onSubmit={createSession} className="page-section">
 
-                        Create Session
+                            <div className="field-grid">
+                                <input
+                                    type="text"
+                                    placeholder="Session Name"
+                                    value={sessionName}
+                                    onChange={(e) => setSessionName(e.target.value)}
+                                />
 
-                    </button>
+                                <input
+                                    type="text"
+                                    placeholder="Subject"
+                                    value={subject}
+                                    onChange={(e) => setSubject(e.target.value)}
+                                />
 
-                </form>
+                                <input
+                                    type="number"
+                                    min="1"
+                                    placeholder="Duration (Minutes)"
+                                    value={duration}
+                                    onChange={(e) => setDuration(e.target.value)}
+                                />
+                            </div>
 
-                {createdSession && (
+                            {error ? <p className="error-text">{error}</p> : null}
 
-                    <div style={{ marginTop: "30px" }}>
+                            <div className="form-actions">
+                                <button className="primary-button" type="submit" disabled={loading}>
+                                    {loading ? "Creating..." : "Create Session"}
+                                </button>
+                            </div>
 
-                        <h2 style={{ color: "green" }}>
-                            ✅ Session Created Successfully
-                        </h2>
+                        </form>
 
-                        <p>
-                            <strong>Session Name:</strong>{" "}
-                            {createdSession.sessionName}
-                        </p>
+                    </section>
 
-                        <p>
-                            <strong>Subject:</strong>{" "}
-                            {createdSession.subject}
-                        </p>
+                    {loading ? <Loading label="Creating session" /> : null}
 
-                        <p>
-                            <strong>Session Code:</strong>{" "}
-                            {createdSession.sessionCode}
-                        </p>
+                    {createdSession ? (
 
-                        <p>
-                            <strong>Duration:</strong>{" "}
-                            {createdSession.duration} Minutes
-                        </p>
+                        <section className="form-card success-state" style={{ alignItems: "stretch" }}>
 
-                        <h3>QR Code</h3>
+                            <span className="status-pill active">Session Created</span>
+                            <h2 style={{ margin: 0 }}>{createdSession.sessionName}</h2>
+                            <p style={{ margin: 0, color: "var(--muted)" }}>{createdSession.subject}</p>
 
-                        <img
-                            src={createdSession.qrCode}
-                            alt="QR Code"
-                            width="220"
-                        />
+                            <div className="field-grid">
+                                <div className="hero-stat">
+                                    <strong>{createdSession.sessionCode}</strong>
+                                    <span>Share this code with students</span>
+                                </div>
+                                <div className="hero-stat">
+                                    <strong>{createdSession.duration} min</strong>
+                                    <span>Session duration</span>
+                                </div>
+                            </div>
 
-                    </div>
+                            <img
+                                src={createdSession.qrCode}
+                                alt="Session QR code"
+                                style={{ width: "220px", borderRadius: "18px", background: "white", padding: "0.6rem" }}
+                            />
 
-                )}
+                            <div className="form-actions">
+                                <button className="primary-button" onClick={() => navigate("/manage-session", { state: { session: createdSession } })}>
+                                    Manage Session
+                                </button>
+                                <button className="secondary" onClick={() => navigate("/my-sessions")}>
+                                    View My Sessions
+                                </button>
+                            </div>
+
+                        </section>
+
+                    ) : null}
+
+                </main>
 
             </div>
+
+            <Toast message={toast} type="success" />
 
         </div>
 

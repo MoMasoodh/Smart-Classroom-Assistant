@@ -13,6 +13,9 @@ import MySessions from "./pages/MySessions";
 import AskDoubt from "./pages/AskDoubt";
 import MyDoubts from "./pages/MyDoubts";
 import PendingDoubts from "./pages/PendingDoubts";
+import Discussion from "./pages/Discussion";
+import ManageSession from "./pages/ManageSession";
+import AnswerDoubt from "./pages/AnswerDoubt";
 
 import "./styles/App.css";
 
@@ -32,6 +35,10 @@ function App() {
       <Route path="/ask-doubt" element={<AskDoubt />} />
       <Route path="/my-doubts" element={<MyDoubts />}/>
       <Route path="/pending-doubts"element={<PendingDoubts />}/>
+      <Route path="/discussion" element={<Discussion />} />
+      <Route path="/manage-session" element={<ManageSession />} />
+      <Route path="/answer-doubt" element={<AnswerDoubt />} />
+      <Route path="/join/:sessionCode" element={<StudentLogin />} />
    
     </Routes>
   );

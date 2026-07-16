@@ -1,5 +1,6 @@
 import { useState } from "react";
 import { useNavigate } from "react-router-dom";
+import Navbar from "../components/Navbar";
 import "./TeacherLogin.css";
 
 function TeacherLogin() {
@@ -14,29 +15,35 @@ function TeacherLogin() {
     e.preventDefault();
 
     if (!email.trim() || !password.trim()) {
-      alert("Please enter email and password.");
       return;
     }
 
-    // Backend login will be connected later
-
-    navigate("/teacher-dashboard");
+    navigate("/teacher-dashboard", {
+      state: {
+        teacherName: email.split("@")[0] || "Teacher",
+      },
+    });
 
   }
 
   return (
 
-    <div className="login-page">
+    <div className="auth-page">
 
-      <div className="login-card">
+      <Navbar />
 
-        <h1>Teacher Login</h1>
+      <div className="login-page">
 
-        <p className="login-subtitle">
-          Smart Classroom Assistant
-        </p>
+        <div className="login-card auth-card">
 
-        <form onSubmit={login}>
+          <span className="eyebrow">Teacher access</span>
+          <h1>Teacher Login</h1>
+
+          <p className="login-subtitle">
+            Smart Classroom Assistant
+          </p>
+
+          <form onSubmit={login} className="auth-form">
 
           <input
             type="email"
@@ -52,11 +59,13 @@ function TeacherLogin() {
             onChange={(e) => setPassword(e.target.value)}
           />
 
-          <button type="submit">
-            Login
-          </button>
+            <button type="submit" className="primary-button">
+              Login
+            </button>
 
-        </form>
+          </form>
+
+        </div>
 
       </div>
 

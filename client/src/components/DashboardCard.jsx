@@ -1,6 +1,6 @@
 import "./DashboardCard.css";
 
-function DashboardCard({ icon, title, description, onClick }) {
+function DashboardCard({ icon, title, description, onClick, footer }) {
 
     return (
 
@@ -16,6 +16,8 @@ function DashboardCard({ icon, title, description, onClick }) {
             <h2>{title}</h2>
 
             <p>{description}</p>
+
+            {footer ? <div className="dashboard-card-footer">{footer}</div> : null}
 
         </div>
 
