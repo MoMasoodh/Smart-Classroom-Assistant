@@ -1,7 +1,10 @@
 import { NavLink } from "react-router-dom";
+import { useAuth } from "../contexts/AuthContext";
 import "./Sidebar.css";
 
 function Sidebar({ teacher = false }) {
+  const { logout } = useAuth();
+
   const links = teacher
     ? [
         { to: "/teacher-dashboard", label: "Dashboard" },
@@ -37,9 +40,15 @@ function Sidebar({ teacher = false }) {
           </NavLink>
         ))}
 
-        <NavLink to="/" className="sidebar-link secondary">
-          {teacher ? "Logout" : "Leave Session"}
-        </NavLink>
+        {teacher ? (
+          <button type="button" className="sidebar-link secondary sidebar-button" onClick={logout}>
+            Logout
+          </button>
+        ) : (
+          <NavLink to="/" className="sidebar-link secondary">
+            Leave Session
+          </NavLink>
+        )}
       </nav>
 
     </aside>

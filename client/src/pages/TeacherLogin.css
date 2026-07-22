@@ -2,7 +2,7 @@
     min-height: 100vh;
 }
 
-.login-page {
+.auth-shell {
     min-height: calc(100vh - 84px);
     display: grid;
     place-items: center;
@@ -11,7 +11,7 @@
 
 .login-card {
     width: min(100%, 460px);
-    padding: 1.5rem;
+    padding: 1.75rem;
 }
 
 .login-card h1 {
@@ -29,8 +29,18 @@
     gap: 0.9rem;
 }
 
+.auth-footer {
+    margin: 1rem 0 0;
+    color: var(--muted);
+}
+
+.auth-footer a {
+    color: var(--primary);
+    font-weight: 700;
+}
+
 @media (max-width: 900px) {
-    .login-page {
+    .auth-shell {
         min-height: calc(100vh - 120px);
         padding: 1rem;
     }

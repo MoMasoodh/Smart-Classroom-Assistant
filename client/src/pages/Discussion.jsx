@@ -12,6 +12,7 @@ function Discussion() {
   const location = useLocation();
   const storedProfile = getStudentProfile();
   const session = location.state?.session || storedProfile?.session || getActiveSession();
+  const teacherView = Boolean(location.state?.teacherView);
 
   const [doubts, setDoubts] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -30,7 +31,9 @@ function Discussion() {
     try {
       setLoading(true);
       setError("");
-      const response = await api.get(`/doubts/session/${session.sessionCode}/answered`);
+      const response = teacherView && session?._id
+        ? await api.get(`/sessions/my-sessions/${session._id}/answered`)
+        : await api.get(`/doubts/session/${session.sessionCode}/answered`);
       const sorted = [...response.data].sort((left, right) => new Date(right.createdAt || 0) - new Date(left.createdAt || 0));
       setDoubts(sorted);
     } catch (requestError) {
@@ -42,15 +45,21 @@ function Discussion() {
 
   return (
     <div className="app-page">
-      <Sidebar />
+      <Sidebar teacher={teacherView} />
       <div className="content-with-sidebar">
         <Header
           title="Discussion"
           subtitle={session ? `Answered doubts · Session ${session.sessionCode}` : "Answered classroom doubts"}
           actions={
-            <button className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName: storedProfile?.studentName, session } })}>
-              Back to Dashboard
-            </button>
+            teacherView ? (
+              <button className="secondary" onClick={() => navigate("/manage-session", { state: { session } })}>
+                Back to Session
+              </button>
+            ) : (
+              <button className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName: storedProfile?.studentName, session } })}>
+                Back to Dashboard
+              </button>
+            )
           }
         />
 

@@ -27,6 +27,18 @@ const doubtSchema = new mongoose.Schema({
     default: "",
   },
 
+  teacherId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
+    default: null,
+  },
+
+  teacherName: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
   status: {
     type: String,
     default: "Pending",
@@ -35,6 +47,11 @@ const doubtSchema = new mongoose.Schema({
   createdAt: {
     type: Date,
     default: Date.now,
+  },
+
+  answeredAt: {
+    type: Date,
+    default: null,
   },
 
 });

@@ -7,10 +7,12 @@ import Header from "../components/Header";
 import Toast from "../components/Toast";
 import Loading from "../components/Loading";
 import { saveStoredSession, setActiveSession } from "../services/storage";
+import { useAuth } from "../contexts/AuthContext";
 
 function CreateSession() {
 
     const navigate = useNavigate();
+    const { teacher } = useAuth();
 
     const [sessionName, setSessionName] = useState("");
     const [subject, setSubject] = useState("");
@@ -41,9 +43,15 @@ function CreateSession() {
                 duration: Number(duration)
             });
 
-            setCreatedSession(response.data);
-            saveStoredSession(response.data);
-            setActiveSession(response.data);
+            const sessionData = {
+    ...response.data,
+    teacherId: teacher.id,
+    teacherName: teacher.fullName,
+};
+
+setCreatedSession(sessionData);
+saveStoredSession(sessionData);
+setActiveSession(sessionData);
             setToast("Session Created");
 
             setSessionName("");

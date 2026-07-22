@@ -5,39 +5,39 @@ import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Loading from "../components/Loading";
 import DoubtCard from "../components/DoubtCard";
-import { getStoredSessions, getActiveSession } from "../services/storage";
 import "./PendingDoubts.css";
 
 function PendingDoubts() {
 
     const navigate = useNavigate();
     const location = useLocation();
-
-    const session = location.state?.session || getActiveSession() || getStoredSessions()[0];
+    const session = location.state?.session || null;
+    const teacherView = Boolean(session?.teacherId);
 
     const [doubts, setDoubts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
 
     useEffect(() => {
-        if (session?.sessionCode) {
-            fetchPendingDoubts();
-        } else {
+
+        if (!session?._id) {
             setLoading(false);
             setError("Session not found.");
+            return;
         }
 
-    }, [session?.sessionCode]);
+        fetchPendingDoubts();
+
+    }, [session?._id]);
 
     const fetchPendingDoubts = async () => {
-
         try {
 
             setLoading(true);
             setError("");
 
             const response = await api.get(
-                `/doubts/session/${session.sessionCode}/pending`
+                `/sessions/my-sessions/${session._id}/pending`
             );
 
             setDoubts(response.data);
@@ -63,7 +63,8 @@ function PendingDoubts() {
             state: {
 
                 doubt,
-                session
+                session,
+                teacherView: true
 
             }
 
@@ -75,13 +76,17 @@ function PendingDoubts() {
 
         <div className="app-page">
 
-            <Sidebar teacher />
+            <Sidebar teacher={teacherView} />
 
             <div className="content-with-sidebar">
 
                 <Header
                     title="Pending Doubts"
-                    subtitle={session ? `Session ${session.sessionCode}` : "Teacher review queue"}
+                    subtitle={
+                        session
+                            ? `${session.sessionName} • ${session.sessionCode}`
+                            : "Teacher review queue"
+}
                     actions={
                         <button className="secondary" onClick={() => navigate("/manage-session", { state: { session } })}>
                             Back to Session
@@ -102,7 +107,7 @@ function PendingDoubts() {
 
                     {!loading && !error && doubts.length === 0 ? (
                         <div className="empty-state">
-                            <strong>No pending doubts.</strong>
+                            <strong>Pending doubts unavailable</strong>
                             <p>All student questions in this session have already been answered.</p>
                         </div>
                     ) : null}

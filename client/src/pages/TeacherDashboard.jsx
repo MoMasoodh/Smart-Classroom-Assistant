@@ -1,19 +1,27 @@
-import { useLocation, useNavigate } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DashboardCard from "../components/DashboardCard";
 import { getStoredSessions } from "../services/storage";
+import { useAuth } from "../contexts/AuthContext";
 import "./TeacherDashboard.css";
 
 function TeacherDashboard() {
 
     const navigate = useNavigate();
-    const location = useLocation();
+    const { teacher, logout } = useAuth();
 
-    const teacherName = location.state?.teacherName || "Teacher";
-    const sessions = getStoredSessions();
-    const activeSessions = sessions.filter((session) => session.isActive !== false);
-    const latestSession = sessions[0];
+    const teacherName = teacher?.fullName || "Teacher";
+
+const sessions = getStoredSessions().filter(
+    (session) => session.teacherId === teacher?.id
+);
+
+const activeSessions = sessions.filter(
+    (session) => session.isActive !== false
+);
+
+const latestSession = sessions.length > 0 ? sessions[0] : null;
 
     const openLatestSession = () => {
         if (!latestSession) {
@@ -40,12 +48,23 @@ function TeacherDashboard() {
                     title="Teacher Dashboard"
                     subtitle={`Welcome back, ${teacherName}`}
                     actions={
-                        <button
-                            className="primary-button"
-                            onClick={() => navigate("/create-session")}
-                        >
-                            Create Session
-                        </button>
+                        <>
+                            <button
+                                className="primary-button"
+                                onClick={() => navigate("/create-session")}
+                            >
+                                Create Session
+                            </button>
+                            <button
+                                className="secondary"
+                                onClick={() => {
+                                    logout();
+                                    navigate("/");
+                                }}
+                            >
+                                Logout
+                            </button>
+                        </>
                     }
                 />
 
@@ -63,7 +82,7 @@ function TeacherDashboard() {
                         <div className="field-grid">
                             <div className="hero-stat">
                                 <strong>{sessions.length}</strong>
-                                <span>Total sessions saved in this browser</span>
+                                <span>Your total sessions</span>
                             </div>
                             <div className="hero-stat">
                                 <strong>{activeSessions.length}</strong>
@@ -83,9 +102,13 @@ function TeacherDashboard() {
                         <DashboardCard
                             icon="📚"
                             title="My Sessions"
-                            description="View every saved session, open one for management, or close it."
+                            description="View and manage only the sessions you created."
                             onClick={() => navigate("/my-sessions")}
-                            footer={<span className="status-pill active">{sessions.length} saved</span>}
+                            footer={
+    <span className="status-pill active">
+        {sessions.length} Saved
+    </span>
+}
                         />
 
                         <DashboardCard
@@ -93,7 +116,17 @@ function TeacherDashboard() {
                             title="Manage Latest Session"
                             description="Jump directly into the most recently created classroom session."
                             onClick={openLatestSession}
-                            footer={latestSession ? <span className="status-pill active">{latestSession.sessionCode}</span> : <span className="status-pill pending">No session yet</span>}
+                            footer={
+    latestSession ? (
+        <span className="status-pill active">
+            {latestSession.sessionCode}
+        </span>
+    ) : (
+        <span className="status-pill pending">
+            No Session
+        </span>
+    )
+}
                         />
 
                         <DashboardCard
@@ -114,7 +147,10 @@ function TeacherDashboard() {
                             icon="🚪"
                             title="Logout"
                             description="Return to the home page and switch accounts if needed."
-                            onClick={() => navigate("/")}
+                            onClick={() => {
+                                logout();
+                                navigate("/");
+                            }}
                         />
                     </div>
 

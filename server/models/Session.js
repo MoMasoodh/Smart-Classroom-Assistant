@@ -36,6 +36,18 @@ const sessionSchema = new mongoose.Schema({
   type: String,
   default: "",
 },
+  
+  teacherId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Teacher",
+    required: true,
+  },
+
+  teacherName: {
+    type: String,
+    required: true,
+    trim: true,
+  },
 
   createdAt: {
     type: Date,
@@ -45,6 +57,11 @@ const sessionSchema = new mongoose.Schema({
   expiresAt: {
     type: Date,
     required: true,
+  },
+
+  closedAt: {
+    type: Date,
+    default: null,
   },
 });
 

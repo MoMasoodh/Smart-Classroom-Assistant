@@ -5,15 +5,17 @@ import Header from "../components/Header";
 import Loading from "../components/Loading";
 import Toast from "../components/Toast";
 import api from "../services/api";
-import { getStoredSessions, getActiveSession } from "../services/storage";
+import { useAuth } from "../contexts/AuthContext";
 
 function AnswerDoubt() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { teacher } = useAuth();
 
-  const session = location.state?.session || getActiveSession() || getStoredSessions()[0];
+  const session = location.state?.session || null;
   const doubt = location.state?.doubt;
   const autoGenerate = location.state?.mode === "ai";
+  const teacherView = Boolean(location.state?.teacherView || teacher);
 
   const [answer, setAnswer] = useState(doubt?.answer || "");
   const [loading, setLoading] = useState(false);
@@ -54,7 +56,7 @@ function AnswerDoubt() {
       setError("");
       await api.put(`/doubts/${doubt._id}`, { answer });
       setToast("Answer Saved");
-      navigate("/pending-doubts", { state: { session } });
+      navigate("/pending-doubts", { state: { session, teacherView } });
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to save answer.");
     } finally {
@@ -72,7 +74,7 @@ function AnswerDoubt() {
             <div className="empty-state">
               <strong>No doubt selected.</strong>
               <p>Open a pending doubt from the teacher dashboard first.</p>
-              <button className="primary-button" onClick={() => navigate("/pending-doubts", { state: { session } })}>Pending Doubts</button>
+              <button className="primary-button" onClick={() => navigate("/pending-doubts", { state: { session, teacherView } })}>Pending Doubts</button>
             </div>
           </main>
         </div>
@@ -82,12 +84,12 @@ function AnswerDoubt() {
 
   return (
     <div className="app-page">
-      <Sidebar teacher />
+      <Sidebar teacher={teacherView} />
       <div className="content-with-sidebar">
         <Header
           title="Answer Doubt"
           subtitle={`${doubt.studentName} · ${doubt.subject}`}
-          actions={<button className="secondary" onClick={() => navigate("/pending-doubts", { state: { session } })}>Back to Pending</button>}
+          actions={<button className="secondary" onClick={() => navigate("/pending-doubts", { state: { session, teacherView } })}>Back to Pending</button>}
         />
 
         <main className="page-shell page-grid">

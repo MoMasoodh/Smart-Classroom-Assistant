@@ -7,11 +7,12 @@ import Loading from "../components/Loading";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
 import api from "../services/api";
-import { getStoredSessions, updateStoredSession } from "../services/storage";
+import { useAuth } from "../contexts/AuthContext";
 
 function MySessions() {
 
     const navigate = useNavigate();
+    const { teacher } = useAuth();
     const [sessions, setSessions] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
@@ -19,9 +20,28 @@ function MySessions() {
     const [closingSession, setClosingSession] = useState(null);
 
     useEffect(() => {
-        setSessions(getStoredSessions());
-        setLoading(false);
-    }, []);
+        if (!teacher) {
+            setLoading(false);
+            setError("You are not logged in.");
+            return;
+        }
+
+        const loadSessions = async () => {
+            try {
+                setLoading(true);
+                setError("");
+
+                const response = await api.get("/sessions/my-sessions");
+                setSessions(response.data);
+            } catch (requestError) {
+                setError(requestError.response?.data?.message || "Unable to load sessions.");
+            } finally {
+                setLoading(false);
+            }
+        };
+
+        loadSessions();
+    }, [teacher]);
 
     const openManageSession = (session) => {
         navigate("/manage-session", {
@@ -38,8 +58,11 @@ function MySessions() {
             setLoading(true);
             setError("");
             await api.put(`/sessions/${closingSession._id}/close`);
-            const nextSessions = updateStoredSession(closingSession.sessionCode, { isActive: false });
-            setSessions(nextSessions);
+            setSessions((currentSessions) => currentSessions.map((session) => (
+                session._id === closingSession._id
+                    ? { ...session, isActive: false, closedAt: new Date().toISOString() }
+                    : session
+            )));
             setToast("Session Closed");
         } catch (requestError) {
             setError(requestError.response?.data?.message || "Unable to close session.");
@@ -64,7 +87,7 @@ function MySessions() {
 
                 <Header
                     title="My Sessions"
-                    subtitle="All classroom sessions saved in this browser"
+                   subtitle="View and manage only your classroom sessions"
                     actions={
                         <button className="primary-button" onClick={() => navigate("/create-session")}>Create Session</button>
                     }
@@ -76,14 +99,14 @@ function MySessions() {
 
                     {error ? (
                         <div className="error-state">
-                            <strong>Unable to update sessions</strong>
+                            <strong>Unable to load sessions</strong>
                             <p>{error}</p>
                         </div>
                     ) : null}
 
                     {!loading && !error && sortedSessions.length === 0 ? (
                         <div className="empty-state">
-                            <strong>No sessions created yet.</strong>
+                           <strong>You haven't created any sessions yet.</strong>
                             <p>Create a session to start managing doubts and quizzes.</p>
                             <button className="primary-button" onClick={() => navigate("/create-session")}>
                                 Create Session

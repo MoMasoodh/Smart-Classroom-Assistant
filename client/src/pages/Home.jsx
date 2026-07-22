@@ -32,6 +32,9 @@ function Home() {
               <button className="secondary" onClick={() => navigate("/teacher-login")}>
                 Teacher Login
               </button>
+              <button className="secondary" onClick={() => navigate("/teacher-register")}>
+                Teacher Register
+              </button>
             </div>
           </div>
 
@@ -72,6 +75,9 @@ function Home() {
             </p>
             <button className="login-btn" onClick={() => navigate("/teacher-login")}>
               Teacher Login
+            </button>
+            <button className="join-btn" onClick={() => navigate("/teacher-register")}>
+              Teacher Register
             </button>
           </article>
 

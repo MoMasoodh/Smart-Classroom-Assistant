@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
@@ -6,14 +6,14 @@ import Loading from "../components/Loading";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
 import api from "../services/api";
-import { getStoredSessions, getActiveSession, updateStoredSession } from "../services/storage";
 
 function ManageSession() {
   const navigate = useNavigate();
   const location = useLocation();
 
-  const session = location.state?.session || getActiveSession() || getStoredSessions()[0];
+  const [session, setSession] = useState(location.state?.session || null);
   const sessionCode = session?.sessionCode;
+  const quizSectionRef = useRef(null);
 
   const [stats, setStats] = useState(null);
   const [quiz, setQuiz] = useState(null);
@@ -36,28 +36,32 @@ function ManageSession() {
     }
   }, [sessionCode]);
 
+  useEffect(() => {
+    setQuizTopic(session?.subject || "");
+    setQuizTitle(session ? `${session.sessionName} Quiz` : "Class Quiz");
+  }, [session?.subject, session?.sessionName]);
+
   const loadSessionData = async () => {
     try {
       setLoading(true);
       setError("");
 
-      const [statsResponse, quizResponse] = await Promise.allSettled([
-        api.get(`/sessions/${sessionCode}/stats`),
+      const [sessionResponse, quizResponse] = await Promise.allSettled([
+        api.get(`/sessions/my-sessions/${session._id}`),
         api.get(`/quizzes/session/${sessionCode}`),
       ]);
 
-      if (statsResponse.status === "fulfilled") {
-        setStats(statsResponse.value.data);
+      if (sessionResponse.status === "fulfilled") {
+        setSession(sessionResponse.value.data.session);
+        setStats(sessionResponse.value.data.stats);
+      } else {
+        setError(sessionResponse.reason?.response?.data?.message || "Unable to load session data.");
       }
 
       if (quizResponse.status === "fulfilled") {
         setQuiz(quizResponse.value.data);
       } else {
         setQuiz(null);
-      }
-
-      if (statsResponse.status === "rejected" && quizResponse.status === "rejected") {
-        setError(statsResponse.reason?.response?.data?.message || "Unable to load session data.");
       }
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to load session data.");
@@ -74,10 +78,17 @@ function ManageSession() {
 
     try {
       setQuizLoading(true);
-      await api.put(`/sessions/${session._id}/close`);
-      updateStoredSession(session.sessionCode, { isActive: false });
-      setToast("Session Closed");
+      const response = await api.put(`/sessions/${session._id}/close`);
+      const updatedSession = response.data;
+
+      setSession((currentSession) => ({
+        ...currentSession,
+        ...updatedSession,
+        isActive: false,
+        closedAt: updatedSession.closedAt || new Date().toISOString(),
+      }));
       setStats((currentStats) => (currentStats ? { ...currentStats, status: "Closed" } : currentStats));
+      setToast("Session Closed");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to close session.");
     } finally {
@@ -114,7 +125,6 @@ function ManageSession() {
 
       const startResponse = await api.put(`/quizzes/${createResponse.data._id}/start`);
       setQuiz(startResponse.data);
-      updateStoredSession(session.sessionCode, { quizEnabled: true });
       setToast("Quiz Published");
     } catch (requestError) {
       setError(requestError.response?.data?.message || "Unable to publish quiz.");
@@ -123,16 +133,31 @@ function ManageSession() {
     }
   };
 
+  const openPendingDoubts = () => {
+    navigate("/pending-doubts", { state: { session } });
+  };
+
+  const openAnsweredDoubts = () => {
+    navigate("/discussion", { state: { session, teacherView: true } });
+  };
+
+  const openQuizSection = () => {
+    quizSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+
   if (!session) {
     return (
       <div className="app-page">
         <Sidebar teacher />
         <div className="content-with-sidebar">
-          <Header title="Manage Session" subtitle="No session selected" />
+          <Header
+    title="Manage Session"
+    subtitle="Session unavailable"
+/>
           <main className="page-shell">
             <div className="empty-state">
-              <strong>No session found.</strong>
-              <p>Select a session from My Sessions or create a new one.</p>
+              <strong>Session not found.</strong>
+              <p>Please open one of your sessions from the My Sessions page.</p>
               <div className="form-actions">
                 <button className="primary-button" onClick={() => navigate("/my-sessions")}>My Sessions</button>
                 <button className="secondary" onClick={() => navigate("/create-session")}>Create Session</button>
@@ -178,6 +203,12 @@ function ManageSession() {
                   </p>
                 </div>
 
+                <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+                  <span className={`status-pill ${session.isActive === false ? "closed" : "active"}`}>
+                    {session.isActive === false ? "Closed" : "Active"}
+                  </span>
+                </div>
+
                 <div className="stats-grid">
                   <div className="stat-card hero-card">
                     <span className="eyebrow">Students</span>
@@ -199,32 +230,59 @@ function ManageSession() {
               </section>
 
               <div className="dashboard-grid">
-                <button className="session-card" onClick={() => navigate("/pending-doubts", { state: { session } })}>
+                <button className="session-card" onClick={openPendingDoubts}>
                   <span className="status-pill pending">Pending Doubts</span>
                   <h3>Review and answer new student questions</h3>
                   <p>Open the unresolved doubts queue for this session.</p>
                 </button>
 
-                <button className="session-card" onClick={() => navigate("/discussion", { state: { session } })}>
+                <button className="session-card" onClick={openAnsweredDoubts}>
                   <span className="status-pill active">Answered Doubts</span>
                   <h3>Read the answered discussion feed</h3>
                   <p>Browse the resolved classroom conversation in newest-first order.</p>
                 </button>
 
-                <button className="session-card" onClick={() => navigate("/statistics", { state: { session } })}>
-                  <span className="status-pill active">Statistics</span>
-                  <h3>Open classroom analytics</h3>
-                  <p>See participation, doubt activity, and quiz engagement.</p>
+                <button className="session-card" onClick={openQuizSection}>
+                  <span className="status-pill active">Quiz</span>
+                  <h3>Publish or review the session quiz</h3>
+                  <p>Jump to the quiz management section for this session.</p>
                 </button>
 
-                <button className="session-card" onClick={() => navigate("/leaderboard", { state: { session } })}>
-                  <span className="status-pill active">Leaderboard</span>
-                  <h3>Review quiz rankings</h3>
-                  <p>See who scored highest in the current session.</p>
+                <button className="session-card" onClick={() => setClosingSession(true)}>
+                  <span className="status-pill closed">Close Session</span>
+                  <h3>End the classroom session</h3>
+                  <p>Prevent new joins, doubts, and quiz access immediately.</p>
                 </button>
               </div>
 
-              <section className="form-card page-section">
+              <section className="hero-card page-section">
+                <div className="field-grid">
+                  <div>
+                    <span className="eyebrow">Session details</span>
+                    <h3 style={{ margin: "0.7rem 0 0.35rem" }}>{session.sessionName}</h3>
+                    <p style={{ margin: 0, color: "var(--muted)" }}>{session.subject}</p>
+                  </div>
+
+                  <div className="hero-stat">
+                    <strong>{session.sessionCode}</strong>
+                    <span>Session code</span>
+                  </div>
+                  <div className="hero-stat">
+                    <strong>{session.duration} min</strong>
+                    <span>Duration</span>
+                  </div>
+                  <div className="hero-stat">
+                    <strong>{session.createdAt ? new Date(session.createdAt).toLocaleString() : "—"}</strong>
+                    <span>Created date</span>
+                  </div>
+                  <div className="hero-stat">
+                    <strong>{session.closedAt ? new Date(session.closedAt).toLocaleString() : "—"}</strong>
+                    <span>Closed date</span>
+                  </div>
+                </div>
+              </section>
+
+              <section className="hero-card page-section">
                 <div>
                   <span className="eyebrow">Quiz management</span>
                   <h3 style={{ margin: "0.7rem 0 0.35rem" }}>{quiz ? quiz.title : "No quiz published yet"}</h3>
@@ -240,7 +298,7 @@ function ManageSession() {
                   </div>
                 ) : null}
 
-                <form className="page-section" onSubmit={publishQuiz}>
+                <form className="page-section" onSubmit={publishQuiz} ref={quizSectionRef}>
                   <div className="field-grid">
                     <input value={quizTitle} onChange={(e) => setQuizTitle(e.target.value)} placeholder="Quiz title" />
                     <input value={quizTopic} onChange={(e) => setQuizTopic(e.target.value)} placeholder="Quiz topic" />
@@ -248,8 +306,15 @@ function ManageSession() {
                     <input type="number" min="1" max="10" value={questionCount} onChange={(e) => setQuestionCount(e.target.value)} placeholder="Questions" />
                   </div>
 
+                  {!session.isActive ? (
+                    <div className="empty-state" style={{ marginTop: 0 }}>
+                      <strong>This session is closed.</strong>
+                      <p>You can still review statistics and answered doubts, but students can no longer join or take the quiz.</p>
+                    </div>
+                  ) : null}
+
                   <div className="form-actions">
-                    <button className="primary-button" type="submit" disabled={quizLoading}>
+                    <button className="primary-button" type="submit" disabled={quizLoading || !session.isActive}>
                       {quizLoading ? "Publishing..." : "Generate Quiz"}
                     </button>
                     <button type="button" className="danger" onClick={() => setClosingSession(true)}>

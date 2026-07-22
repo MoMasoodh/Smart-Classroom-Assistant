@@ -2,8 +2,9 @@ const express = require("express");
 const router = express.Router();
 const Quiz = require("../models/Quiz");
 const Session = require("../models/Session");
+const { requireTeacherAuth } = require("../middleware/authMiddleware");
 
-router.post("/", async (req, res) => {
+router.post("/", requireTeacherAuth, async (req, res) => {
   try {
 
     const {
@@ -12,6 +13,23 @@ router.post("/", async (req, res) => {
       duration,
       questions
     } = req.body;
+
+    const session = await Session.findOne({
+      sessionCode,
+      teacherId: req.teacher.id,
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        message: "Session not found"
+      });
+    }
+
+    if (!session.isActive) {
+      return res.status(400).json({
+        message: "Session is closed"
+      });
+    }
 
     const quiz = new Quiz({
       sessionCode,
@@ -95,10 +113,29 @@ router.get("/session/:sessionCode", async (req, res) => {
   }
 });
 
-router.put("/:id/stop", async (req, res) => {
+router.put("/:id/stop", requireTeacherAuth, async (req, res) => {
   try {
 
-    const quiz = await Quiz.findByIdAndUpdate(
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({
+        message: "Quiz not found"
+      });
+    }
+
+    const session = await Session.findOne({
+      sessionCode: quiz.sessionCode,
+      teacherId: req.teacher.id,
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        message: "Session not found"
+      });
+    }
+
+    const updatedQuiz = await Quiz.findByIdAndUpdate(
       req.params.id,
       {
         isActive: false
@@ -108,7 +145,7 @@ router.put("/:id/stop", async (req, res) => {
       }
     );
 
-    res.json(quiz);
+    res.json(updatedQuiz);
 
   } catch (error) {
 
@@ -119,10 +156,29 @@ router.put("/:id/stop", async (req, res) => {
   }
 });
 
-router.put("/:id/start", async (req, res) => {
+router.put("/:id/start", requireTeacherAuth, async (req, res) => {
   try {
 
-    const quiz = await Quiz.findByIdAndUpdate(
+    const quiz = await Quiz.findById(req.params.id);
+
+    if (!quiz) {
+      return res.status(404).json({
+        message: "Quiz not found"
+      });
+    }
+
+    const session = await Session.findOne({
+      sessionCode: quiz.sessionCode,
+      teacherId: req.teacher.id,
+    });
+
+    if (!session) {
+      return res.status(404).json({
+        message: "Session not found"
+      });
+    }
+
+    const updatedQuiz = await Quiz.findByIdAndUpdate(
       req.params.id,
       {
         isActive: true
@@ -132,7 +188,7 @@ router.put("/:id/start", async (req, res) => {
       }
     );
 
-    res.json(quiz);
+    res.json(updatedQuiz);
 
   } catch (error) {
 

@@ -16,6 +16,8 @@ import PendingDoubts from "./pages/PendingDoubts";
 import Discussion from "./pages/Discussion";
 import ManageSession from "./pages/ManageSession";
 import AnswerDoubt from "./pages/AnswerDoubt";
+import TeacherRegister from "./pages/TeacherRegister";
+import ProtectedRoute from "./components/ProtectedRoute";
 
 import "./styles/App.css";
 
@@ -24,20 +26,21 @@ function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/student-dashboard" element={<StudentDashboard />} />
-      <Route path="/teacher-dashboard" element={<TeacherDashboard />} />
+      <Route path="/teacher-login" element={<TeacherLogin />} />
+      <Route path="/teacher-register" element={<TeacherRegister />} />
+      <Route path="/teacher-dashboard" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
       <Route path="/quiz" element={<QuizPage />} />
       <Route path="/leaderboard" element={<Leaderboard />} />
-      <Route path="/statistics" element={<Statistics />} />
-      <Route path="/student-login"element={<StudentLogin />}/>
-      <Route path="/teacher-login" element={<TeacherLogin />}/>
-      <Route path="/create-session" element={<CreateSession />} />
-      <Route path="/my-sessions" element={<MySessions />} />
+      <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
+      <Route path="/student-login" element={<StudentLogin />} />
+      <Route path="/create-session" element={<ProtectedRoute><CreateSession /></ProtectedRoute>} />
+      <Route path="/my-sessions" element={<ProtectedRoute><MySessions /></ProtectedRoute>} />
       <Route path="/ask-doubt" element={<AskDoubt />} />
       <Route path="/my-doubts" element={<MyDoubts />}/>
-      <Route path="/pending-doubts"element={<PendingDoubts />}/>
+      <Route path="/pending-doubts" element={<ProtectedRoute><PendingDoubts /></ProtectedRoute>} />
       <Route path="/discussion" element={<Discussion />} />
-      <Route path="/manage-session" element={<ManageSession />} />
-      <Route path="/answer-doubt" element={<AnswerDoubt />} />
+      <Route path="/manage-session" element={<ProtectedRoute><ManageSession /></ProtectedRoute>} />
+      <Route path="/answer-doubt" element={<ProtectedRoute><AnswerDoubt /></ProtectedRoute>} />
       <Route path="/join/:sessionCode" element={<StudentLogin />} />
    
     </Routes>

@@ -8,6 +8,7 @@ const sessionRoutes = require("./routes/sessionRoutes");
 const quizRoutes = require("./routes/quizRoutes");
 const resultRoutes = require("./routes/resultRoutes");
 const aiRoutes = require("./routes/aiRoutes");
+const authRoutes = require("./routes/authRoutes");
 
 const app = express();
 
@@ -19,6 +20,7 @@ app.use("/api/sessions", sessionRoutes);
 app.use("/api/quizzes", quizRoutes);
 app.use("/api/results", resultRoutes);
 app.use("/api/ai", aiRoutes);
+app.use("/api/auth", authRoutes);
 
 mongoose.connect(process.env.MONGO_URI)
 .then(() => console.log("MongoDB Connected"));
