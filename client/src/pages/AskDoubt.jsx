@@ -1,11 +1,12 @@
 import { useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import api from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Toast from "../components/Toast";
 import Loading from "../components/Loading";
-import { getStudentProfile, getActiveSession } from "../services/storage";
+import { getStudentProfile, getActiveSession, getStudent } from "../services/storage";
 import "./AskDoubt.css";
 
 function AskDoubt() {
@@ -13,9 +14,17 @@ function AskDoubt() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const student = getStudent();
+
+    if (!student) {
+        return <Navigate to="/student-login" replace />;
+    }
+
     const profile = getStudentProfile();
-    const studentName = location.state?.studentName || profile?.studentName || "Student";
+    const studentName = location.state?.studentName || profile?.studentName || student?.student?.fullName || "Student";
+    const registerNumber = location.state?.registerNumber || profile?.registerNumber || student?.student?.registerNumber || "";
     const session = location.state?.session || profile?.session || getActiveSession();
+    const sessionCode = session?.sessionCode || "";
 
     const [subject, setSubject] = useState("");
     const [question, setQuestion] = useState("");
@@ -40,15 +49,11 @@ function AskDoubt() {
             setError("");
 
             await api.post("/doubts", {
-
-                studentName,
-
-                sessionCode: session.sessionCode,
-
+                studentName: student.student.fullName,
+                registerNumber: student.student.registerNumber,
+                sessionCode,
                 subject,
-
-                question
-
+                question,
             });
 
             setToast("Doubt Submitted");
@@ -58,6 +63,7 @@ function AskDoubt() {
                 state:{
 
                     studentName,
+                    registerNumber,
 
                     session
 
@@ -115,12 +121,6 @@ function AskDoubt() {
                                     value={subject}
                                     onChange={(e)=>setSubject(e.target.value)}
                                 />
-
-                                <input
-                                    type="text"
-                                    value={studentName}
-                                    disabled
-                                />
                             </div>
 
                             <textarea
@@ -133,7 +133,7 @@ function AskDoubt() {
                             {error ? <p className="error-text">{error}</p> : null}
 
                             <div className="form-actions">
-                                <button type="button" className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName, session } })}>
+                                <button type="button" className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName, registerNumber, session } })}>
                                     Back to Dashboard
                                 </button>
 

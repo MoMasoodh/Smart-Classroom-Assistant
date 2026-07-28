@@ -1,8 +1,16 @@
 import { useNavigate, useLocation } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DashboardCard from "../components/DashboardCard";
-import { getStudentProfile, getActiveSession } from "../services/storage";
+import {
+    getStudentProfile,
+    getActiveSession,
+    clearActiveSession,
+    clearStudentProfile,
+    clearStudent,
+    getStudent,
+} from "../services/storage";
 
 import "./StudentDashboard.css";
 
@@ -11,9 +19,31 @@ function StudentDashboard() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const student = getStudent();
+
+    if (!student) {
+        return <Navigate to="/student-login" replace />;
+    }
+
     const storedProfile = getStudentProfile();
-    const studentName = location.state?.studentName || storedProfile?.studentName || "Student";
+    const studentName = location.state?.studentName || storedProfile?.studentName || student?.student?.fullName || "Student";
+    const registerNumber = location.state?.registerNumber || storedProfile?.registerNumber || student?.student?.registerNumber || "";
     const session = location.state?.session || storedProfile?.session || getActiveSession();
+    const handleLeaveSession = () => {
+        const confirmLeave = window.confirm(
+            "Are you sure you want to leave this session?"
+        );
+
+        if (!confirmLeave) return;
+
+        clearActiveSession();
+        clearStudentProfile();
+        clearStudent();
+
+        navigate("/", {
+            replace: true,
+        });
+    };
 
     return (
 
@@ -66,6 +96,7 @@ function StudentDashboard() {
                                 navigate("/ask-doubt", {
                                     state: {
                                         studentName,
+                                        registerNumber,
                                         session,
                                     }
                                 })
@@ -76,14 +107,15 @@ function StudentDashboard() {
                             icon="📋"
                             title="My Doubts"
                             description="View all your submitted doubts and teacher answers."
-                            onClick={() =>
+                            onClick={() => {
                                 navigate("/my-doubts", {
                                     state: {
                                         studentName,
+                                        registerNumber,
                                         session,
-                                    }
-                                })
-                            }
+                                    },
+                                });
+                            }}
                         />
 
                         <DashboardCard
@@ -94,6 +126,7 @@ function StudentDashboard() {
                                 navigate("/discussion", {
                                     state: {
                                         studentName,
+                                        registerNumber,
                                         session,
                                     }
                                 })
@@ -104,14 +137,20 @@ function StudentDashboard() {
                             icon="📝"
                             title="Quiz"
                             description="Attend active classroom quizzes and submit your score."
-                            onClick={() =>
+                            onClick={() => {
+                                if (!session?.isActive) {
+                                    alert("This session has been closed.");
+                                    return;
+                                }
+
                                 navigate("/quiz", {
                                     state: {
                                         studentName,
+                                        registerNumber,
                                         session,
-                                    }
-                                })
-                            }
+                                    },
+                                });
+                            }}
                         />
 
                         <DashboardCard
@@ -122,6 +161,7 @@ function StudentDashboard() {
                                 navigate("/leaderboard", {
                                     state: {
                                         studentName,
+                                        registerNumber,
                                         session,
                                     }
                                 })
@@ -131,8 +171,8 @@ function StudentDashboard() {
                         <DashboardCard
                             icon="🚪"
                             title="Leave Session"
-                            description="Return to the home page."
-                            onClick={() => navigate("/")}
+                            description="Leave the current classroom session."
+                            onClick={handleLeaveSession}
                         />
 
                     </div>

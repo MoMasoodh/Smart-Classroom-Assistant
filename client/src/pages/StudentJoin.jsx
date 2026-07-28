@@ -2,7 +2,7 @@ import { useState } from "react";
 import { useLocation, useNavigate, useParams } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import api from "../services/api";
-import { saveStoredSession, setActiveSession, setStudentProfile } from "../services/storage";
+import { saveStoredSession, setActiveSession, setStudentProfile ,getStudent} from "../services/storage";
 import "./StudentJoin.css";
 
 function StudentLogin() {
@@ -11,21 +11,20 @@ function StudentLogin() {
     const location = useLocation();
     const params = useParams();
 
-    const [studentName, setStudentName] = useState("");
+    
     const [sessionCode, setSessionCode] = useState(params.sessionCode || "");
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState("");
 
     const routeState = location.state;
+    const loggedInStudent = getStudent();
 
     const handleJoin = async () => {
 
-        if (!studentName.trim() || !sessionCode.trim()) {
-            setError("Please enter your name and session code.");
-
-            return;
-
-        }
+       if (!loggedInStudent || !sessionCode.trim()) {
+    setError("Please login before joining a session.");
+    return;
+}
 
         try {
 
@@ -34,33 +33,47 @@ function StudentLogin() {
 
             const response = await api.get(`/sessions/${sessionCode}`);
 
-            if (response.data.isActive) {
+            const session = response.data;
 
-                const session = response.data;
+if (!session.isActive) {
 
-                setStudentProfile({
-                    studentName,
-                    sessionCode: session.sessionCode,
-                    session,
-                });
+    setError(
+        "❌ This session has been closed by the teacher."
+    );
 
-                setActiveSession(session);
+    return;
+}
 
-                saveStoredSession(session);
+if (
+    session.expiresAt &&
+    new Date(session.expiresAt) < new Date()
+) {
 
-                navigate("/student-dashboard", {
-                    state: {
-                        studentName: studentName,
-                        session: session,
-                    }
-                });
+    setError(
+        "⌛ This session has expired."
+    );
 
-            }
+    return;
+}
 
-            else {
-                setError("Session is closed.");
+setStudentProfile({
+    studentName: loggedInStudent.student.fullName,
+    registerNumber: loggedInStudent.student.registerNumber,
+    sessionCode: session.sessionCode,
+    session,
+});
 
-            }
+setActiveSession(session);
+
+saveStoredSession(session);
+
+navigate("/student-dashboard", {
+    state: {
+        studentName: loggedInStudent.student.fullName,
+        registerNumber: loggedInStudent.student.registerNumber,
+        session,
+    },
+});
 
         }
 
@@ -104,12 +117,7 @@ function StudentLogin() {
                         }}
                     >
 
-                        <input
-                            type="text"
-                            placeholder="Enter Your Name"
-                            value={studentName}
-                            onChange={(e) => setStudentName(e.target.value)}
-                        />
+                       
 
                         <input
                             type="text"

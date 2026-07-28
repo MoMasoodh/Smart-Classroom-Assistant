@@ -1,11 +1,12 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import api from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Loading from "../components/Loading";
 import DoubtCard from "../components/DoubtCard";
-import { getStudentProfile, getActiveSession } from "../services/storage";
+import { getStudentProfile, getActiveSession, getStudent } from "../services/storage";
 import "./MyDoubts.css";
 
 function MyDoubts() {
@@ -13,8 +14,15 @@ function MyDoubts() {
     const navigate = useNavigate();
     const location = useLocation();
 
+    const student = getStudent();
+
+    if (!student) {
+        return <Navigate to="/student-login" replace />;
+    }
+
     const storedProfile = getStudentProfile();
-    const studentName = location.state?.studentName || storedProfile?.studentName || "Student";
+    const studentName = location.state?.studentName || storedProfile?.studentName || student?.student?.fullName || "Student";
+    const registerNumber = location.state?.registerNumber || storedProfile?.registerNumber || student?.student?.registerNumber || "";
     const session = location.state?.session || storedProfile?.session || getActiveSession();
 
     const [doubts, setDoubts] = useState([]);
@@ -78,7 +86,7 @@ function MyDoubts() {
                     actions={
                         <button
                             className="secondary"
-                            onClick={() => navigate("/student-dashboard", { state: { studentName, session } })}
+                            onClick={() => navigate("/student-dashboard", { state: { studentName, registerNumber, session } })}
                         >
                             Back to Dashboard
                         </button>
@@ -100,7 +108,7 @@ function MyDoubts() {
                         <div className="empty-state">
                             <strong>No doubts submitted yet.</strong>
                             <p>Ask your first question to see it appear here.</p>
-                            <button className="primary-button" onClick={() => navigate("/ask-doubt", { state: { studentName, session } })}>
+                            <button className="primary-button" onClick={() => navigate("/ask-doubt", { state: { studentName, registerNumber, session } })}>
                                 Ask Doubt
                             </button>
                         </div>

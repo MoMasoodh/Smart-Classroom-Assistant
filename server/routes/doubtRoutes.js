@@ -64,7 +64,7 @@ router.get("/session/:sessionCode", requireTeacherAuth, async (req, res) => {
 // Create Doubt
 router.post("/", async (req, res) => {
   try {
-    const { studentName, sessionCode, subject, question } = req.body;
+    const { studentName, registerNumber, sessionCode, subject, question } = req.body;
 
     if (!studentName || !sessionCode || !subject || !question) {
       return res.status(400).json({ message: "All fields are required" });
@@ -88,7 +88,13 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Session has expired" });
     }
 
-    const doubt = new Doubt(req.body);
+    const doubt = new Doubt({
+      studentName,
+      registerNumber,
+      sessionCode,
+      subject,
+      question,
+    });
 
     const savedDoubt = await doubt.save();
 

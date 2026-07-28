@@ -6,7 +6,7 @@ import TeacherDashboard from "./pages/TeacherDashboard";
 import QuizPage from "./pages/QuizPage";
 import Leaderboard from "./pages/Leaderboard";
 import Statistics from "./pages/Statistics";
-import StudentLogin from "./pages/StudentJoin";
+import StudentJoin from "./pages/StudentJoin";
 import TeacherLogin from "./pages/TeacherLogin";
 import CreateSession from "./pages/CreateSession";
 import MySessions from "./pages/MySessions";
@@ -18,6 +18,8 @@ import ManageSession from "./pages/ManageSession";
 import AnswerDoubt from "./pages/AnswerDoubt";
 import TeacherRegister from "./pages/TeacherRegister";
 import ProtectedRoute from "./components/ProtectedRoute";
+import StudentRegister from "./pages/StudentRegister";
+import StudentLogin from "./pages/StudentLogin";
 
 import "./styles/App.css";
 
@@ -41,7 +43,9 @@ function App() {
       <Route path="/discussion" element={<Discussion />} />
       <Route path="/manage-session" element={<ProtectedRoute><ManageSession /></ProtectedRoute>} />
       <Route path="/answer-doubt" element={<ProtectedRoute><AnswerDoubt /></ProtectedRoute>} />
-      <Route path="/join/:sessionCode" element={<StudentLogin />} />
+      <Route path="/join/:sessionCode" element={<StudentJoin />} />
+      <Route path="/student-register" element={<StudentRegister />} />
+      <Route path="/student-login" element={<StudentLogin />} />
    
     </Routes>
   );

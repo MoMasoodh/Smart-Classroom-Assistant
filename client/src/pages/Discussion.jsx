@@ -1,16 +1,25 @@
 import { useEffect, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
+import { Navigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Loading from "../components/Loading";
 import DoubtCard from "../components/DoubtCard";
 import api from "../services/api";
-import { getActiveSession, getStudentProfile } from "../services/storage";
+import { getActiveSession, getStudentProfile, getStudent } from "../services/storage";
 
 function Discussion() {
   const navigate = useNavigate();
   const location = useLocation();
+  const student = getStudent();
+
+  if (!student) {
+    return <Navigate to="/student-login" replace />;
+  }
+
   const storedProfile = getStudentProfile();
+  const studentName = location.state?.studentName || storedProfile?.studentName || student?.student?.fullName || "Student";
+  const registerNumber = location.state?.registerNumber || storedProfile?.registerNumber || student?.student?.registerNumber || "";
   const session = location.state?.session || storedProfile?.session || getActiveSession();
   const teacherView = Boolean(location.state?.teacherView);
 
@@ -56,7 +65,7 @@ function Discussion() {
                 Back to Session
               </button>
             ) : (
-              <button className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName: storedProfile?.studentName, session } })}>
+              <button className="secondary" onClick={() => navigate("/student-dashboard", { state: { studentName, registerNumber, session } })}>
                 Back to Dashboard
               </button>
             )

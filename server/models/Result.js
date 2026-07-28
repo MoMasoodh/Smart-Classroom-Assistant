@@ -11,6 +11,12 @@ const resultSchema = new mongoose.Schema({
     required: true,
   },
 
+  registerNumber: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
   score: {
     type: Number,
     required: true,

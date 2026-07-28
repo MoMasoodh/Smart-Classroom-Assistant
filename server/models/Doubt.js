@@ -7,6 +7,12 @@ const doubtSchema = new mongoose.Schema({
     required: true,
   },
 
+  registerNumber: {
+    type: String,
+    default: "",
+    trim: true,
+  },
+
   sessionCode: {
     type: String,
     required: true,

@@ -12,7 +12,7 @@ function PendingDoubts() {
     const navigate = useNavigate();
     const location = useLocation();
     const session = location.state?.session || null;
-    const teacherView = Boolean(session?.teacherId);
+   const teacherView = true;
 
     const [doubts, setDoubts] = useState([]);
     const [loading, setLoading] = useState(true);

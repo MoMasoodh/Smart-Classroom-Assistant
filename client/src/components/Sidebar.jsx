@@ -1,9 +1,22 @@
-import { NavLink } from "react-router-dom";
+import { NavLink, useNavigate } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
+import {
+  clearActiveSession,
+  clearStudent,
+  clearStudentProfile,
+} from "../services/storage";
 import "./Sidebar.css";
 
 function Sidebar({ teacher = false }) {
   const { logout } = useAuth();
+  const navigate = useNavigate();
+
+  const handleStudentLogout = () => {
+    clearActiveSession();
+    clearStudentProfile();
+    clearStudent();
+    navigate("/", { replace: true });
+  };
 
   const links = teacher
     ? [
@@ -45,9 +58,9 @@ function Sidebar({ teacher = false }) {
             Logout
           </button>
         ) : (
-          <NavLink to="/" className="sidebar-link secondary">
+          <button type="button" className="sidebar-link secondary sidebar-button" onClick={handleStudentLogout}>
             Leave Session
-          </NavLink>
+          </button>
         )}
       </nav>
 

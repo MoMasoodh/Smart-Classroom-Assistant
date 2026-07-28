@@ -87,3 +87,25 @@ export function clearStudentProfile() {
 
   window.localStorage.removeItem(STUDENT_PROFILE_KEY);
 }
+
+// ==========================================
+// Student Authentication
+// ==========================================
+
+const STUDENT_KEY = "student";
+
+export function saveStudent(studentData) {
+  writeJson(STUDENT_KEY, studentData);
+}
+
+export function getStudent() {
+  return readJson(STUDENT_KEY, null);
+}
+
+export function clearStudent() {
+  if (typeof window === "undefined") {
+    return;
+  }
+
+  window.localStorage.removeItem(STUDENT_KEY);
+}
