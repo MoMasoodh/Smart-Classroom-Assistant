@@ -16,12 +16,29 @@ function generateSessionCode(subject) {
 
 router.post("/", requireTeacherAuth, async (req, res) => {
   try {
-    const { sessionName, subject, duration } = req.body;
+    const { sessionName, subject, duration, customExpiresAt } = req.body;
 
-    if (!sessionName || !subject || !duration) {
+    if (!sessionName || !subject || (!duration && !customExpiresAt)) {
       return res.status(400).json({
-        message: "Session name, subject, and duration are required",
+        message: "Session name, subject, and duration or expiration time are required",
       });
+    }
+
+    let expiresAt;
+    let durationMinutes = Number(duration);
+
+    if (customExpiresAt) {
+      expiresAt = new Date(customExpiresAt);
+      if (isNaN(expiresAt.getTime())) {
+        return res.status(400).json({ message: "Invalid custom expiration date/time" });
+      }
+      durationMinutes = Math.max(1, Math.round((expiresAt.getTime() - Date.now()) / (60 * 1000)));
+    } else {
+      expiresAt = new Date(Date.now() + durationMinutes * 60 * 1000);
+    }
+
+    if (expiresAt <= new Date()) {
+      return res.status(400).json({ message: "Expiration time must be in the future" });
     }
 
     const sessionCode = generateSessionCode(subject);
@@ -29,17 +46,13 @@ router.post("/", requireTeacherAuth, async (req, res) => {
 
     const qrCode = await QRCode.toDataURL(joinUrl);
 
-    const expiresAt = new Date(
-      Date.now() + duration * 60 * 1000
-    );
-
     const session = new Session({
       teacherId: req.teacher.id,
       teacherName: req.teacher.fullName,
       sessionName,
       subject,
       sessionCode,
-      duration,
+      duration: durationMinutes,
       expiresAt,
       qrCode,
     });
@@ -76,7 +89,13 @@ router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
     const answeredDoubts = await Doubt.countDocuments({ sessionCode: session.sessionCode, status: "Answered" });
     const pendingDoubts = await Doubt.countDocuments({ sessionCode: session.sessionCode, status: "Pending" });
     const quizAttempts = await Result.countDocuments({ sessionCode: session.sessionCode });
-    const students = await Result.distinct("studentName", { sessionCode: session.sessionCode });
+
+    const [doubtStudents, resultStudents] = await Promise.all([
+      Doubt.distinct("studentName", { sessionCode: session.sessionCode }),
+      Result.distinct("studentName", { sessionCode: session.sessionCode }),
+    ]);
+
+    const uniqueStudents = new Set([...doubtStudents, ...resultStudents]);
 
     return res.status(200).json({
       session: {
@@ -84,7 +103,7 @@ router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
         status: session.isActive ? "Active" : "Closed",
       },
       stats: {
-        totalStudents: students.length,
+        totalStudents: uniqueStudents.size,
         totalDoubts,
         answeredDoubts,
         pendingDoubts,
@@ -193,50 +212,11 @@ router.get("/my-sessions/:id/pending", requireTeacherAuth, async (req, res) => {
   }
 });
 
-router.get("/:code/stats", requireTeacherAuth, async (req, res) => {
-  try {
+const { getSessionStatistics } = require("../controllers/statisticsController");
 
-    const session = await Session.findOne({
-      sessionCode: req.params.code,
-      teacherId: req.teacher.id,
-    });
-
-    if (!session) {
-      return res.status(404).json({
-        message: "Session not found"
-      });
-    }
-
-    const totalDoubts = await Doubt.countDocuments({ sessionCode: req.params.code });
-    const answeredDoubts = await Doubt.countDocuments({ sessionCode: req.params.code, status: "Answered" });
-    const pendingDoubts = await Doubt.countDocuments({ sessionCode: req.params.code, status: "Pending" });
-    const quizAttempts = await Result.countDocuments({ sessionCode: req.params.code });
-    const students = await Result.distinct("studentName", { sessionCode: req.params.code });
-
-    res.json({
-      sessionName: session.sessionName,
-      subject: session.subject,
-      sessionCode: session.sessionCode,
-      status: session.isActive ? "Active" : "Closed",
-      totalStudents: students.length,
-      totalDoubts,
-      answeredDoubts,
-      pendingDoubts,
-      quizAttempts,
-      duration: session.duration,
-      createdAt: session.createdAt,
-      closedAt: session.closedAt,
-      teacherName: session.teacherName,
-    });
-
-  }
-  catch (error) {
-
-    res.status(500).json({
-      message: error.message
-    });
-
-  }
+router.get("/:code/stats", requireTeacherAuth, (req, res) => {
+  req.params.sessionCode = req.params.code;
+  return getSessionStatistics(req, res);
 });
 
 module.exports = router;

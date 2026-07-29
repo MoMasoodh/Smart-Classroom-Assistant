@@ -3,134 +3,122 @@ import { useLocation, useNavigate } from "react-router-dom";
 import api from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
-import Loading from "../components/Loading";
 import DoubtCard from "../components/DoubtCard";
+import { SkeletonCard } from "../components/Skeleton";
+import { HelpCircle, ArrowLeft, CheckCircle2 } from "lucide-react";
 import "./PendingDoubts.css";
 
 function PendingDoubts() {
+  const navigate = useNavigate();
+  const location = useLocation();
+  const session = location.state?.session || null;
+  const teacherView = true;
 
-    const navigate = useNavigate();
-    const location = useLocation();
-    const session = location.state?.session || null;
-   const teacherView = true;
+  const [doubts, setDoubts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    const [doubts, setDoubts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  useEffect(() => {
+    if (!session?._id) {
+      setLoading(false);
+      setError("No classroom session selected.");
+      return;
+    }
 
-    useEffect(() => {
+    fetchPendingDoubts();
+  }, [session?._id]);
 
-        if (!session?._id) {
-            setLoading(false);
-            setError("Session not found.");
-            return;
-        }
+  const fetchPendingDoubts = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-        fetchPendingDoubts();
+      const response = await api.get(
+        `/sessions/my-sessions/${session._id}/pending`
+      );
 
-    }, [session?._id]);
+      setDoubts(response.data);
+    } catch (err) {
+      console.log(err);
+      setError(err.response?.data?.message || "Unable to load pending doubts.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchPendingDoubts = async () => {
-        try {
+  const answerDoubt = (doubt) => {
+    navigate("/answer-doubt", {
+      state: {
+        doubt,
+        session,
+        teacherView: true,
+      },
+    });
+  };
 
-            setLoading(true);
-            setError("");
+  return (
+    <div className="app-page">
+      <Sidebar teacher={teacherView} />
 
-            const response = await api.get(
-                `/sessions/my-sessions/${session._id}/pending`
-            );
+      <div className="content-with-sidebar">
+        <Header
+          title="Pending Doubts Queue"
+          subtitle={
+            session
+              ? `${session.sessionName} • PIN ${session.sessionCode}`
+              : "Teacher Review Queue"
+          }
+          actions={
+            <button
+              className="secondary"
+              onClick={() => navigate("/manage-session", { state: { session } })}
+            >
+              <ArrowLeft size={16} /> Back to Session
+            </button>
+          }
+        />
 
-            setDoubts(response.data);
-
-        } catch (error) {
-
-            console.log(error);
-
-            setError(error.response?.data?.message || "Unable to load pending doubts.");
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    };
-
-    const answerDoubt = (doubt) => {
-
-        navigate("/answer-doubt", {
-
-            state: {
-
-                doubt,
-                session,
-                teacherView: true
-
-            }
-
-        });
-
-    };
-
-    return (
-
-        <div className="app-page">
-
-            <Sidebar teacher={teacherView} />
-
-            <div className="content-with-sidebar">
-
-                <Header
-                    title="Pending Doubts"
-                    subtitle={
-                        session
-                            ? `${session.sessionName} • ${session.sessionCode}`
-                            : "Teacher review queue"
-}
-                    actions={
-                        <button className="secondary" onClick={() => navigate("/manage-session", { state: { session } })}>
-                            Back to Session
-                        </button>
-                    }
-                />
-
-                <main className="page-shell">
-
-                    {loading ? <Loading label="Loading pending doubts" /> : null}
-
-                    {error ? (
-                        <div className="error-state">
-                            <strong>Unable to load pending doubts</strong>
-                            <p>{error}</p>
-                        </div>
-                    ) : null}
-
-                    {!loading && !error && doubts.length === 0 ? (
-                        <div className="empty-state">
-                            <strong>Pending doubts unavailable</strong>
-                            <p>All student questions in this session have already been answered.</p>
-                        </div>
-                    ) : null}
-
-                    <div className="card-grid">
-                        {doubts.map((doubt) => (
-                            <DoubtCard
-                                key={doubt._id}
-                                doubt={doubt}
-                                onAnswer={() => answerDoubt(doubt)}
-                                onAiAnswer={() => navigate("/answer-doubt", { state: { doubt, session, mode: "ai" } })}
-                            />
-                        ))}
-                    </div>
-
-                </main>
-
+        <main className="page-shell fade-in">
+          {loading && (
+            <div className="dashboard-grid">
+              <SkeletonCard />
+              <SkeletonCard />
             </div>
+          )}
 
-        </div>
+          {error && !loading ? (
+            <div className="error-state hero-card">
+              <strong style={{ fontSize: "1.1rem" }}>Unable to load pending doubts</strong>
+              <p style={{ margin: "0.5rem 0 0" }}>{error}</p>
+            </div>
+          ) : null}
 
-    );
+          {!loading && !error && doubts.length === 0 ? (
+            <div className="empty-state">
+              <CheckCircle2 size={48} style={{ color: "var(--success)" }} />
+              <strong>All Doubts Answered!</strong>
+              <p>Great job! There are no pending questions from students in this session.</p>
+            </div>
+          ) : null}
 
+          <div className="dashboard-grid">
+            {doubts.map((doubt) => (
+              <DoubtCard
+                key={doubt._id}
+                doubt={doubt}
+                onAnswer={() => answerDoubt(doubt)}
+                onAiAnswer={() =>
+                  navigate("/answer-doubt", {
+                    state: { doubt, session, mode: "ai" },
+                  })
+                }
+              />
+            ))}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }
 
 export default PendingDoubts;

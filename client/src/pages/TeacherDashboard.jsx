@@ -1,167 +1,191 @@
-import { useNavigate } from "react-router-dom";
+import { useNavigate } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DashboardCard from "../components/DashboardCard";
 import { getStoredSessions } from "../services/storage";
 import { useAuth } from "../contexts/AuthContext";
+import { useEffect, useState } from "react";
+import api from "../services/api";
+import {
+  PlusCircle,
+  BookOpen,
+  Compass,
+  HelpCircle,
+  BarChart3,
+  LogOut,
+  Sparkles,
+  Radio,
+} from "lucide-react";
 import "./TeacherDashboard.css";
 
 function TeacherDashboard() {
+  const navigate = useNavigate();
+  const { teacher, logout } = useAuth();
+  const teacherName = teacher?.fullName || "Teacher";
 
-    const navigate = useNavigate();
-    const { teacher, logout } = useAuth();
+  const [sessions, setSessions] = useState(() => {
+    return getStoredSessions().filter((s) => s.teacherId === teacher?.id);
+  });
 
-    const teacherName = teacher?.fullName || "Teacher";
+  const loadSessions = async () => {
+    try {
+      const response = await api.get("/sessions/my-sessions");
+      setSessions(response.data);
+    } catch {
+      // Fallback to local storage on error
+    }
+  };
 
-const sessions = getStoredSessions().filter(
-    (session) => session.teacherId === teacher?.id
-);
+  useEffect(() => {
+    loadSessions();
+    const timer = setInterval(loadSessions, 15000);
+    return () => clearInterval(timer);
+  }, []);
 
-const activeSessions = sessions.filter(
-    (session) => session.isActive !== false
-);
+  const activeSessions = sessions.filter(
+    (session) =>
+      session.isActive !== false &&
+      new Date(session.expiresAt) > new Date()
+  );
 
-const latestSession = sessions.length > 0 ? sessions[0] : null;
+  const latestSession = sessions.length > 0 ? sessions[0] : null;
 
-    const openLatestSession = () => {
-        if (!latestSession) {
-            navigate("/my-sessions");
-            return;
-        }
+  const openLatestSession = () => {
+    if (!latestSession) {
+      navigate("/my-sessions");
+      return;
+    }
 
-        navigate("/manage-session", {
-            state: {
-                session: latestSession,
-            },
-        });
-    };
+    navigate("/manage-session", {
+      state: {
+        session: latestSession,
+      },
+    });
+  };
 
-    return (
+  return (
+    <div className="app-page">
+      <Sidebar teacher />
 
-        <div className="app-page">
+      <div className="content-with-sidebar">
+        <Header
+          title="Teacher Dashboard"
+          subtitle={`Welcome back, ${teacherName}`}
+          actions={
+            <>
+              <button
+                className="primary-button"
+                onClick={() => navigate("/create-session")}
+              >
+                <PlusCircle size={18} />
+                Create Session
+              </button>
+              <button
+                className="secondary"
+                onClick={() => {
+                  logout();
+                  navigate("/");
+                }}
+              >
+                <LogOut size={18} />
+                Logout
+              </button>
+            </>
+          }
+        />
 
-            <Sidebar teacher />
-
-            <div className="content-with-sidebar">
-
-                <Header
-                    title="Teacher Dashboard"
-                    subtitle={`Welcome back, ${teacherName}`}
-                    actions={
-                        <>
-                            <button
-                                className="primary-button"
-                                onClick={() => navigate("/create-session")}
-                            >
-                                Create Session
-                            </button>
-                            <button
-                                className="secondary"
-                                onClick={() => {
-                                    logout();
-                                    navigate("/");
-                                }}
-                            >
-                                Logout
-                            </button>
-                        </>
-                    }
-                />
-
-                <main className="page-shell">
-
-                    <section className="hero-card page-hero">
-                        <div>
-                            <span className="eyebrow">Teaching overview</span>
-                            <h2 style={{ margin: "0.75rem 0 0.35rem" }}>Manage sessions, doubts, and quizzes from one place.</h2>
-                            <p style={{ margin: 0, color: "var(--muted)" }}>
-                                Keep your classroom flow moving with quick access to the current session, pending doubts, quiz publishing, and analytics.
-                            </p>
-                        </div>
-
-                        <div className="field-grid">
-                            <div className="hero-stat">
-                                <strong>{sessions.length}</strong>
-                                <span>Your total sessions</span>
-                            </div>
-                            <div className="hero-stat">
-                                <strong>{activeSessions.length}</strong>
-                                <span>Active sessions</span>
-                            </div>
-                        </div>
-                    </section>
-
-                    <div className="dashboard-grid">
-                        <DashboardCard
-                            icon="➕"
-                            title="Create Session"
-                            description="Create a new classroom session and generate the QR code instantly."
-                            onClick={() => navigate("/create-session")}
-                        />
-
-                        <DashboardCard
-                            icon="📚"
-                            title="My Sessions"
-                            description="View and manage only the sessions you created."
-                            onClick={() => navigate("/my-sessions")}
-                            footer={
-    <span className="status-pill active">
-        {sessions.length} Saved
-    </span>
-}
-                        />
-
-                        <DashboardCard
-                            icon="🧭"
-                            title="Manage Latest Session"
-                            description="Jump directly into the most recently created classroom session."
-                            onClick={openLatestSession}
-                            footer={
-    latestSession ? (
-        <span className="status-pill active">
-            {latestSession.sessionCode}
-        </span>
-    ) : (
-        <span className="status-pill pending">
-            No Session
-        </span>
-    )
-}
-                        />
-
-                        <DashboardCard
-                            icon="📝"
-                            title="Pending Doubts"
-                            description="Review and answer unresolved student doubts from your active session."
-                            onClick={() => navigate("/pending-doubts")}
-                        />
-
-                        <DashboardCard
-                            icon="📊"
-                            title="Statistics"
-                            description="Review live classroom analytics for students, doubts, and quiz attempts."
-                            onClick={() => navigate("/statistics")}
-                        />
-
-                        <DashboardCard
-                            icon="🚪"
-                            title="Logout"
-                            description="Return to the home page and switch accounts if needed."
-                            onClick={() => {
-                                logout();
-                                navigate("/");
-                            }}
-                        />
-                    </div>
-
-                </main>
-
+        <main className="page-shell fade-in">
+          <section className="hero-card page-hero" style={{ marginBottom: "1.5rem" }}>
+            <div>
+              <span className="eyebrow">
+                <Sparkles size={14} /> Teaching Workspace Overview
+              </span>
+              <h2 style={{ margin: "0.75rem 0 0.35rem", fontSize: "1.5rem" }}>
+                Manage live sessions, student doubts, and AI quizzes.
+              </h2>
+              <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem" }}>
+                Keep your classroom engaging with instant QR session codes, real-time doubt resolution, and automated analytics.
+              </p>
             </div>
 
-        </div>
+            <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(140px, 1fr))", gap: "1rem", marginTop: "1rem" }}>
+              <div className="hero-stat">
+                <strong>{sessions.length}</strong>
+                <span>Total Sessions</span>
+              </div>
+              <div className="hero-stat" style={{ borderLeft: "3px solid var(--success)" }}>
+                <strong style={{ color: "var(--success)" }}>{activeSessions.length}</strong>
+                <span style={{ display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                  <Radio size={12} style={{ color: "var(--success)" }} /> Active Live
+                </span>
+              </div>
+            </div>
+          </section>
 
-    );
+          <div className="dashboard-grid">
+            <DashboardCard
+              icon={<PlusCircle size={26} />}
+              title="Create Session"
+              description="Launch a new classroom session and generate printable QR code & session PIN."
+              onClick={() => navigate("/create-session")}
+            />
 
+            <DashboardCard
+              icon={<BookOpen size={26} />}
+              title="My Sessions"
+              description="View, manage, inspect rosters, and close classroom sessions created by you."
+              onClick={() => navigate("/my-sessions")}
+              footer={
+                <span className="status-pill active">
+                  {sessions.length} Sessions Saved
+                </span>
+              }
+            />
+
+            <DashboardCard
+              icon={<Compass size={26} />}
+              title="Manage Latest Session"
+              description="Jump directly into your most recently created classroom session."
+              onClick={openLatestSession}
+              footer={
+                latestSession ? (
+                  <span className="status-pill active">
+                    PIN: {latestSession.sessionCode}
+                  </span>
+                ) : (
+                  <span className="status-pill pending">No Active Session</span>
+                )
+              }
+            />
+
+            <DashboardCard
+              icon={<HelpCircle size={26} />}
+              title="Pending Doubts"
+              description="Review, answer, and provide AI-generated explanations for unanswered student doubts."
+              onClick={() => navigate("/pending-doubts")}
+            />
+
+            <DashboardCard
+              icon={<BarChart3 size={26} />}
+              title="Statistics"
+              description="Review real-time classroom analytics, doubt resolution rates, and quiz scores."
+              onClick={() => navigate("/statistics")}
+            />
+
+            <DashboardCard
+              icon={<LogOut size={26} />}
+              title="Logout"
+              description="Safely end your teacher session and return to the application landing page."
+              onClick={() => {
+                logout();
+                navigate("/");
+              }}
+            />
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }
 
 export default TeacherDashboard;

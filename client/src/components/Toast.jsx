@@ -1,9 +1,16 @@
-function Toast({ message, type = "info" }) {
-  if (!message) {
-    return null;
-  }
+import { useEffect } from "react";
+import { useToast } from "../contexts/ToastContext";
 
-  return <div className={`toast toast-${type}`}>{message}</div>;
+function Toast({ message, type = "info" }) {
+  const { addToast } = useToast();
+
+  useEffect(() => {
+    if (message) {
+      addToast(message, type);
+    }
+  }, [message, type, addToast]);
+
+  return null;
 }
 
 export default Toast;

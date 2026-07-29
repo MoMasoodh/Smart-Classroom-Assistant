@@ -1,137 +1,125 @@
 import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Navigate } from "react-router-dom";
+import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import api from "../services/api";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
-import Loading from "../components/Loading";
 import DoubtCard from "../components/DoubtCard";
+import { SkeletonCard } from "../components/Skeleton";
 import { getStudentProfile, getActiveSession, getStudent } from "../services/storage";
+import { HelpCircle, PlusCircle, ArrowLeft } from "lucide-react";
 import "./MyDoubts.css";
 
 function MyDoubts() {
+  const navigate = useNavigate();
+  const location = useLocation();
 
-    const navigate = useNavigate();
-    const location = useLocation();
+  const student = getStudent();
 
-    const student = getStudent();
+  const [doubts, setDoubts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState("");
 
-    if (!student) {
-        return <Navigate to="/student-login" replace />;
+  const storedProfile = getStudentProfile();
+  const studentName = location.state?.studentName || storedProfile?.studentName || student?.student?.fullName || "Student";
+  const registerNumber = location.state?.registerNumber || storedProfile?.registerNumber || student?.student?.registerNumber || "";
+  const session = location.state?.session || storedProfile?.session || getActiveSession();
+
+  useEffect(() => {
+    if (session?.sessionCode) {
+      fetchDoubts();
+    } else {
+      setLoading(false);
+      setError("No active session code found.");
     }
+  }, [session?.sessionCode]);
 
-    const storedProfile = getStudentProfile();
-    const studentName = location.state?.studentName || storedProfile?.studentName || student?.student?.fullName || "Student";
-    const registerNumber = location.state?.registerNumber || storedProfile?.registerNumber || student?.student?.registerNumber || "";
-    const session = location.state?.session || storedProfile?.session || getActiveSession();
+  if (!student) {
+    return <Navigate to="/student-login" replace />;
+  }
 
-    const [doubts, setDoubts] = useState([]);
-    const [loading, setLoading] = useState(true);
-    const [error, setError] = useState("");
+  const fetchDoubts = async () => {
+    try {
+      setLoading(true);
+      setError("");
 
-    useEffect(() => {
-        if (session?.sessionCode) {
-            fetchDoubts();
-        } else {
-            setLoading(false);
-            setError("Session not found.");
-        }
+      const response = await api.get(`/doubts/session/${session.sessionCode}`);
+      const myDoubts = response.data.filter(
+        (doubt) => doubt.studentName === studentName
+      );
 
-    }, [session?.sessionCode]);
+      setDoubts(myDoubts);
+    } catch (err) {
+      console.log(err);
+      setError(err.response?.data?.message || "Unable to load your doubts.");
+    } finally {
+      setLoading(false);
+    }
+  };
 
-    const fetchDoubts = async () => {
+  return (
+    <div className="app-page">
+      <Sidebar />
 
-        try {
-
-            setLoading(true);
-            setError("");
-
-            const response = await api.get(
-                `/doubts/session/${session.sessionCode}`
-            );
-
-            const myDoubts = response.data.filter(
-                doubt => doubt.studentName === studentName
-            );
-
-            setDoubts(myDoubts);
-
-        }
-
-        catch(error){
-
-            console.log(error);
-
-            setError(error.response?.data?.message || "Unable to load doubts.");
-
-        } finally {
-
-            setLoading(false);
-
-        }
-
-    };
-
-    return (
-
-        <div className="app-page">
-
-            <Sidebar />
-
-            <div className="content-with-sidebar">
-
-                <Header
-                    title="My Doubts"
-                    subtitle={session ? `Session ${session.sessionCode} · ${studentName}` : studentName}
-                    actions={
-                        <button
-                            className="secondary"
-                            onClick={() => navigate("/student-dashboard", { state: { studentName, registerNumber, session } })}
-                        >
-                            Back to Dashboard
-                        </button>
-                    }
-                />
-
-                <main className="page-shell">
-
-                    {loading ? <Loading label="Loading doubts" /> : null}
-
-                    {error ? (
-                        <div className="error-state">
-                            <strong>Unable to load doubts</strong>
-                            <p>{error}</p>
-                        </div>
-                    ) : null}
-
-                    {!loading && !error && doubts.length === 0 ? (
-                        <div className="empty-state">
-                            <strong>No doubts submitted yet.</strong>
-                            <p>Ask your first question to see it appear here.</p>
-                            <button className="primary-button" onClick={() => navigate("/ask-doubt", { state: { studentName, registerNumber, session } })}>
-                                Ask Doubt
-                            </button>
-                        </div>
-                    ) : null}
-
-                    <div className="page-grid">
-                        {doubts.map((doubt) => (
-                            <DoubtCard
-                                key={doubt._id}
-                                doubt={doubt}
-                                readOnly
-                            />
-                        ))}
-                    </div>
-
-                </main>
-
+      <div className="content-with-sidebar">
+        <Header
+          title="My Doubts"
+          subtitle={session ? `Session PIN ${session.sessionCode} • ${studentName}` : studentName}
+          actions={
+            <div style={{ display: "flex", gap: "0.5rem" }}>
+              <button
+                className="primary-button"
+                onClick={() => navigate("/ask-doubt", { state: { studentName, registerNumber, session } })}
+              >
+                <PlusCircle size={16} /> Ask Question
+              </button>
+              <button
+                className="secondary"
+                onClick={() => navigate("/student-dashboard", { state: { studentName, registerNumber, session } })}
+              >
+                <ArrowLeft size={16} /> Dashboard
+              </button>
             </div>
+          }
+        />
 
-        </div>
+        <main className="page-shell fade-in">
+          {loading && (
+            <div className="page-grid">
+              <SkeletonCard />
+              <SkeletonCard />
+            </div>
+          )}
 
-    );
+          {error && !loading ? (
+            <div className="error-state hero-card">
+              <strong style={{ fontSize: "1.1rem" }}>Unable to load doubts</strong>
+              <p style={{ margin: "0.5rem 0 0" }}>{error}</p>
+            </div>
+          ) : null}
 
+          {!loading && !error && doubts.length === 0 ? (
+            <div className="empty-state">
+              <HelpCircle size={48} />
+              <strong>No doubts submitted yet.</strong>
+              <p>Ask a question to see teacher answers and AI explanations here.</p>
+              <button
+                className="primary-button"
+                onClick={() => navigate("/ask-doubt", { state: { studentName, registerNumber, session } })}
+              >
+                <PlusCircle size={16} /> Ask Your First Question
+              </button>
+            </div>
+          ) : null}
+
+          <div className="page-grid">
+            {doubts.map((doubt) => (
+              <DoubtCard key={doubt._id} doubt={doubt} readOnly />
+            ))}
+          </div>
+        </main>
+      </div>
+    </div>
+  );
 }
 
 export default MyDoubts;

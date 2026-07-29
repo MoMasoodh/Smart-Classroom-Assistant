@@ -3,11 +3,29 @@ import { useLocation, useNavigate } from "react-router-dom";
 
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
-import Loading from "../components/Loading";
+import { SkeletonCard, SkeletonStat } from "../components/Skeleton";
 import ConfirmDialog from "../components/ConfirmDialog";
 import Toast from "../components/Toast";
+import { useToast } from "../contexts/ToastContext";
 
 import api from "../services/api";
+import {
+  Sparkles,
+  Save,
+  Send,
+  StopCircle,
+  PlusCircle,
+  Trash2,
+  HelpCircle,
+  MessageSquare,
+  FileText,
+  Lock,
+  CheckCircle2,
+  Users,
+  QrCode,
+  ArrowLeft,
+  Clock,
+} from "lucide-react";
 
 const createBlankQuestion = () => ({
   question: "",
@@ -47,7 +65,7 @@ const writeQuizDraft = (sessionCode, draft) => {
   try {
     window.localStorage.setItem(getDraftKey(sessionCode), JSON.stringify(draft));
   } catch {
-    // Ignore storage failures and keep the page functional.
+    // Ignore storage failures
   }
 };
 
@@ -59,13 +77,14 @@ const clearQuizDraft = (sessionCode) => {
   try {
     window.localStorage.removeItem(getDraftKey(sessionCode));
   } catch {
-    // Ignore storage failures and keep the page functional.
+    // Ignore storage failures
   }
 };
 
 function ManageSession() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { addToast } = useToast();
 
   const [session, setSession] = useState(location.state?.session || null);
   const sessionCode = session?.sessionCode;
@@ -89,7 +108,11 @@ function ManageSession() {
 
   useEffect(() => {
     if (sessionCode) {
-      loadSessionData();
+      loadSessionData(false);
+      const timer = setInterval(() => {
+        loadSessionData(true);
+      }, 15000);
+      return () => clearInterval(timer);
     } else {
       setLoading(false);
       setError("Session not found.");
@@ -159,15 +182,15 @@ function ManageSession() {
     return sessionsResponse.data.find((item) => item.sessionCode === sessionCode) || null;
   };
 
-  const loadSessionData = async () => {
+  const loadSessionData = async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       setError("");
 
       const currentSession = await resolveSessionRecord();
 
       if (!currentSession?._id) {
-        setError("Session not found.");
+        if (!isSilent) setError("Session record not found.");
         return;
       }
 
@@ -179,7 +202,7 @@ function ManageSession() {
       if (sessionResponse.status === "fulfilled") {
         setSession(sessionResponse.value.data.session);
         setStats(sessionResponse.value.data.stats);
-      } else {
+      } else if (!isSilent) {
         setError(sessionResponse.reason?.response?.data?.message || "Unable to load session data.");
       }
 
@@ -233,8 +256,11 @@ function ManageSession() {
       setStats((currentStats) => (currentStats ? { ...currentStats, status: "Closed" } : currentStats));
       setQuiz((currentQuiz) => (currentQuiz ? { ...currentQuiz, isActive: false } : currentQuiz));
       setToast("Session Closed");
+      addToast(`Session "${session.sessionName}" has been closed.`, "info");
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to close session.");
+      const msg = requestError.response?.data?.message || "Unable to close session.";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
       setQuizLoading(false);
       setClosingSession(false);
@@ -265,8 +291,11 @@ function ManageSession() {
       setSavedQuizId(null);
       setGeneratedQuestions(normalizeQuestions(parsedQuestions));
       setToast("Quiz Generated Successfully");
+      addToast("AI Quiz questions generated successfully via Gemini!", "success");
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to generate quiz.");
+      const msg = requestError.response?.data?.message || "Unable to generate quiz.";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
       setQuizLoading(false);
     }
@@ -274,12 +303,12 @@ function ManageSession() {
 
   const saveQuiz = async () => {
     if (!sessionCode) {
-      setError("Session not found.");
+      setError("Session code not found.");
       return;
     }
 
     if (!generatedQuestions.length) {
-      setError("Generate or add at least one question before saving.");
+      setError("Add at least one question before saving.");
       return;
     }
 
@@ -299,8 +328,11 @@ function ManageSession() {
       setGeneratedQuestions(normalizeQuestions(response.data.questions || generatedQuestions));
       setQuestionCount(response.data.questions?.length || generatedQuestions.length);
       setToast("Quiz Saved");
+      addToast("Quiz saved successfully! Click 'Publish Quiz' to start it for students.", "success");
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to save quiz.");
+      const msg = requestError.response?.data?.message || "Unable to save quiz.";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
       setQuizLoading(false);
     }
@@ -324,8 +356,11 @@ function ManageSession() {
       setQuiz(response.data);
       setGeneratedQuestions(normalizeQuestions(response.data.questions || generatedQuestions));
       setToast("Quiz Published");
+      addToast("Quiz is now LIVE! Students can take the quiz.", "success");
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to publish quiz.");
+      const msg = requestError.response?.data?.message || "Unable to publish quiz.";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
       setQuizLoading(false);
     }
@@ -348,8 +383,11 @@ function ManageSession() {
       setSavedQuizId(response.data._id || quizId);
       setQuiz(response.data);
       setToast("Quiz Stopped");
+      addToast("Quiz has been stopped.", "info");
     } catch (requestError) {
-      setError(requestError.response?.data?.message || "Unable to stop quiz.");
+      const msg = requestError.response?.data?.message || "Unable to stop quiz.";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
       setQuizLoading(false);
     }
@@ -406,7 +444,7 @@ function ManageSession() {
 
   const isSessionClosed = session?.isActive === false;
   const hasQuiz = Boolean(quiz || savedQuizId);
-  const quizStatus = quiz?.isActive ? "Published" : hasQuiz ? "Saved Draft" : "No Quiz";
+  const quizStatus = quiz?.isActive ? "Published Live" : hasQuiz ? "Saved Draft" : "No Quiz";
 
   if (!session) {
     return (
@@ -414,16 +452,14 @@ function ManageSession() {
         <Sidebar teacher />
         <div className="content-with-sidebar">
           <Header title="Manage Session" subtitle="Session unavailable" />
-          <main className="page-shell">
+          <main className="page-shell fade-in">
             <div className="empty-state">
+              <HelpCircle size={48} />
               <strong>Session not found.</strong>
-              <p>Please open one of your sessions from the My Sessions page.</p>
+              <p>Select an active session from your sessions list.</p>
               <div className="form-actions">
                 <button className="primary-button" onClick={() => navigate("/my-sessions")}>
-                  My Sessions
-                </button>
-                <button className="secondary" onClick={() => navigate("/create-session")}>
-                  Create Session
+                  <BookOpen size={16} /> My Sessions
                 </button>
               </div>
             </div>
@@ -439,175 +475,236 @@ function ManageSession() {
 
       <div className="content-with-sidebar">
         <Header
-          title="Manage Session"
-          subtitle={`${session.sessionName} · ${session.subject} · ${session.sessionCode}`}
+          title="Manage Classroom Session"
+          subtitle={`${session.sessionName} • Subject: ${session.subject} • PIN: ${session.sessionCode}`}
           actions={
             <button className="secondary" onClick={() => navigate("/my-sessions")}>
-              My Sessions
+              <ArrowLeft size={16} /> Back to Sessions
             </button>
           }
         />
 
-        <main className="page-shell page-grid">
-          {loading ? <Loading label="Loading session details" /> : null}
+        <main className="page-shell page-grid fade-in">
+          {loading ? (
+            <div style={{ display: "grid", gridTemplateColumns: "repeat(4, 1fr)", gap: "1rem" }}>
+              <SkeletonStat />
+              <SkeletonStat />
+              <SkeletonStat />
+              <SkeletonStat />
+            </div>
+          ) : null}
 
-          {error ? (
-            <div className="error-state">
-              <strong>Session unavailable</strong>
-              <p>{error}</p>
+          {error && !loading ? (
+            <div className="error-state hero-card">
+              <strong style={{ fontSize: "1.1rem" }}>Session error</strong>
+              <p style={{ margin: "0.5rem 0 0" }}>{error}</p>
             </div>
           ) : null}
 
           {!loading && !error ? (
             <>
+              {/* Hero Banner with Stats */}
               <section className="hero-card page-hero">
-                <div>
-                  <span className="eyebrow">Session overview</span>
-                  <h2 style={{ margin: "0.75rem 0 0.35rem" }}>{session.sessionName}</h2>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>
-                    Code {session.sessionCode} · {session.duration} minutes · {isSessionClosed ? "Closed" : "Active"}
-                  </p>
+                <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
+                  <div>
+                    <span className="eyebrow">
+                      <Sparkles size={14} /> Classroom Control Panel
+                    </span>
+                    <h2 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.5rem" }}>{session.sessionName}</h2>
+                    <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem" }}>
+                      PIN Code: <strong style={{ fontFamily: "monospace", fontSize: "1.05rem" }}>{session.sessionCode}</strong> • {session.duration} min •{" "}
+                      <span className={`status-pill ${isSessionClosed ? "closed" : "active"}`}>
+                        {isSessionClosed ? "Closed" : "Active Live"}
+                      </span>
+                    </p>
+                  </div>
                 </div>
 
-                <div className="form-actions" style={{ justifyContent: "flex-start" }}>
-                  <span className={`status-pill ${isSessionClosed ? "closed" : "active"}`}>
-                    {isSessionClosed ? "Closed" : "Active"}
-                  </span>
-                </div>
-
-                <div className="stats-grid">
+                <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginTop: "1.25rem" }}>
                   <div className="stat-card hero-card">
-                    <span className="eyebrow">Students</span>
-                    <h3>{stats?.totalStudents ?? 0}</h3>
+                    <span className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      <Users size={12} /> Students
+                    </span>
+                    <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0" }}>{stats?.totalStudents ?? 0}</h3>
                   </div>
                   <div className="stat-card hero-card">
-                    <span className="eyebrow">Pending Doubts</span>
-                    <h3>{stats?.pendingDoubts ?? 0}</h3>
+                    <span className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "0.3rem", color: "var(--warning)", background: "var(--warning-bg)" }}>
+                      <HelpCircle size={12} /> Pending Doubts
+                    </span>
+                    <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0", color: "var(--warning)" }}>{stats?.pendingDoubts ?? 0}</h3>
                   </div>
                   <div className="stat-card hero-card">
-                    <span className="eyebrow">Answered Doubts</span>
-                    <h3>{stats?.answeredDoubts ?? 0}</h3>
+                    <span className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "0.3rem", color: "var(--success)", background: "var(--success-bg)" }}>
+                      <CheckCircle2 size={12} /> Answered
+                    </span>
+                    <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0", color: "var(--success)" }}>{stats?.answeredDoubts ?? 0}</h3>
                   </div>
                   <div className="stat-card hero-card">
-                    <span className="eyebrow">Quiz Attempts</span>
-                    <h3>{stats?.quizAttempts ?? 0}</h3>
+                    <span className="eyebrow" style={{ display: "flex", alignItems: "center", gap: "0.3rem" }}>
+                      <FileText size={12} /> Quiz Submissions
+                    </span>
+                    <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0" }}>{stats?.quizAttempts ?? 0}</h3>
                   </div>
                 </div>
               </section>
 
+              {/* Quick Action Navigation Grid */}
               <div className="dashboard-grid">
-                <button className="session-card" onClick={openPendingDoubts}>
-                  <span className="status-pill pending">Pending Doubts</span>
-                  <h3>Review and answer new student questions</h3>
-                  <p>Open the unresolved doubts queue for this session.</p>
+                <button className="dashboard-card" onClick={openPendingDoubts}>
+                  <div className="card-icon" style={{ color: "var(--warning)", background: "var(--warning-bg)" }}>
+                    <HelpCircle size={24} />
+                  </div>
+                  <h2>Pending Doubts ({stats?.pendingDoubts ?? 0})</h2>
+                  <p>Review and answer unanswered student questions queue.</p>
+                  <div className="dashboard-card-footer">
+                    <span className="status-pill pending">Open Queue</span>
+                  </div>
                 </button>
 
-                <button className="session-card" onClick={openAnsweredDoubts}>
-                  <span className="status-pill active">Answered Doubts</span>
-                  <h3>Read the answered discussion feed</h3>
-                  <p>Browse the resolved classroom conversation in newest-first order.</p>
+                <button className="dashboard-card" onClick={openAnsweredDoubts}>
+                  <div className="card-icon" style={{ color: "var(--success)", background: "var(--success-bg)" }}>
+                    <MessageSquare size={24} />
+                  </div>
+                  <h2>Discussion Feed</h2>
+                  <p>Browse resolved classroom doubts and teacher responses.</p>
+                  <div className="dashboard-card-footer">
+                    <span className="status-pill active">View Feed</span>
+                  </div>
                 </button>
 
-                <button className="session-card" onClick={openQuizSection}>
-                  <span className="status-pill active">Quiz</span>
-                  <h3>Publish or review the session quiz</h3>
-                  <p>Jump to the quiz management section for this session.</p>
+                <button className="dashboard-card" onClick={openQuizSection}>
+                  <div className="card-icon" style={{ color: "var(--primary)", background: "var(--primary-light)" }}>
+                    <FileText size={24} />
+                  </div>
+                  <h2>AI Quiz Studio</h2>
+                  <p>Generate, edit, and publish topic assessment quizzes.</p>
+                  <div className="dashboard-card-footer">
+                    <span className="status-pill active">{quizStatus}</span>
+                  </div>
                 </button>
 
-                <button className="session-card" onClick={() => setClosingSession(true)}>
-                  <span className="status-pill closed">Close Session</span>
-                  <h3>End the classroom session</h3>
-                  <p>Prevent new joins, doubts, and quiz access immediately.</p>
+                <button
+                  className="dashboard-card"
+                  onClick={() => setClosingSession(true)}
+                  disabled={isSessionClosed}
+                >
+                  <div className="card-icon" style={{ color: "var(--danger)", background: "var(--danger-bg)" }}>
+                    <Lock size={24} />
+                  </div>
+                  <h2>Close Session</h2>
+                  <p>End student doubt submissions and quiz participation.</p>
+                  <div className="dashboard-card-footer">
+                    <span className={`status-pill ${isSessionClosed ? "closed" : "error"}`}>
+                      {isSessionClosed ? "Closed" : "End Session"}
+                    </span>
+                  </div>
                 </button>
               </div>
 
-              <section className="hero-card page-section">
-                <div className="field-grid">
-                  <div>
-                    <span className="eyebrow">Session details</span>
-                    <h3 style={{ margin: "0.7rem 0 0.35rem" }}>{session.sessionName}</h3>
-                    <p style={{ margin: 0, color: "var(--muted)" }}>{session.subject}</p>
-                  </div>
+              {/* QR Code & Session Details Card */}
+              <section className="hero-card page-section" style={{ display: "grid", gridTemplateColumns: "1fr 220px", gap: "1.5rem", alignItems: "center" }}>
+                <div>
+                  <span className="eyebrow">
+                    <QrCode size={14} /> Classroom Shareable Credentials
+                  </span>
+                  <h3 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.3rem" }}>Student Access Info</h3>
+                  <p style={{ margin: "0 0 1rem", color: "var(--text-muted)" }}>
+                    Project this QR code or share the 6-character PIN code with your students to let them join.
+                  </p>
 
-                  <div className="hero-stat">
-                    <strong>{session.sessionCode}</strong>
-                    <span>Session code</span>
-                  </div>
-                  <div className="hero-stat">
-                    <strong>{session.duration} min</strong>
-                    <span>Duration</span>
-                  </div>
-                  <div className="hero-stat">
-                    <strong>{session.createdAt ? new Date(session.createdAt).toLocaleString() : "—"}</strong>
-                    <span>Created date</span>
-                  </div>
-                  <div className="hero-stat">
-                    <strong>{session.closedAt ? new Date(session.closedAt).toLocaleString() : "—"}</strong>
-                    <span>Closed date</span>
+                  <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(130px, 1fr))", gap: "0.75rem" }}>
+                    <div className="hero-stat">
+                      <strong style={{ fontFamily: "monospace", color: "var(--primary)" }}>{session.sessionCode}</strong>
+                      <span>Session PIN</span>
+                    </div>
+                    <div className="hero-stat">
+                      <strong>{session.duration} min</strong>
+                      <span>Duration</span>
+                    </div>
+                    <div className="hero-stat">
+                      <strong>{session.createdAt ? new Date(session.createdAt).toLocaleDateString() : "—"}</strong>
+                      <span>Created</span>
+                    </div>
                   </div>
                 </div>
+
+                {session.qrCode && (
+                  <div style={{ textAlign: "center" }}>
+                    <img
+                      src={session.qrCode}
+                      alt="Session QR code"
+                      style={{ width: "180px", height: "180px", borderRadius: "14px", border: "1px solid var(--border)", background: "white", padding: "0.5rem" }}
+                    />
+                  </div>
+                )}
               </section>
 
+              {/* AI Quiz Management Studio */}
               <section className="hero-card page-section" ref={quizSectionRef}>
                 <div>
-                  <span className="eyebrow">Quiz management</span>
-                  <h3 style={{ margin: "0.7rem 0 0.35rem" }}>
-                    {quiz?.title || quizTitle || "No quiz published yet"}
+                  <span className="eyebrow">
+                    <Sparkles size={14} /> Gemini AI Quiz Builder
+                  </span>
+                  <h3 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.4rem" }}>
+                    {quiz?.title || quizTitle || "Classroom Assessment Quiz"}
                   </h3>
-                  <p style={{ margin: 0, color: "var(--muted)" }}>
-                    Generate a quiz with AI, edit the questions, then save and publish it for students.
+                  <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem" }}>
+                    Automatically generate questions using Gemini AI, customize question options, then publish live.
                   </p>
                 </div>
 
-                <div className="form-actions" style={{ justifyContent: "flex-start" }}>
+                <div className="form-actions" style={{ justifyContent: "flex-start", marginTop: "1rem" }}>
                   <span className={`status-pill ${quiz?.isActive ? "active" : "closed"}`}>
                     {quizStatus}
                   </span>
                   {quiz ? (
                     <span className="status-pill active">
-                      Questions: {quiz.questions?.length || generatedQuestions.length || 0}
+                      Published Questions: {quiz.questions?.length || 0}
                     </span>
                   ) : null}
-                  <span className="status-pill pending">Draft Questions: {generatedQuestions.length}</span>
+                  <span className="status-pill pending">Editor Questions: {generatedQuestions.length}</span>
                 </div>
 
-                {quiz && !quiz.isActive ? (
-                  <div className="hero-card" style={{ marginTop: "1rem" }}>
-                    <strong>Draft available</strong>
-                    <p style={{ marginBottom: 0, color: "var(--muted)" }}>
-                      Edit the generated questions below, then save and publish when ready.
-                    </p>
-                  </div>
-                ) : null}
-
-                <form className="page-section" onSubmit={generateQuiz}>
-                  <div className="field-grid">
-                    <input
-                      value={quizTitle}
-                      onChange={(event) => setQuizTitle(event.target.value)}
-                      placeholder="Quiz title"
-                    />
-                    <input
-                      value={quizTopic}
-                      onChange={(event) => setQuizTopic(event.target.value)}
-                      placeholder="Quiz topic"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      max="20"
-                      value={quizDuration}
-                      onChange={(event) => setQuizDuration(event.target.value)}
-                      placeholder="Duration (minutes)"
-                    />
-                    <input
-                      type="number"
-                      min="1"
-                      max="10"
-                      value={questionCount}
-                      onChange={(event) => setQuestionCount(event.target.value)}
-                      placeholder="Questions"
-                    />
+                <form className="page-section" onSubmit={generateQuiz} style={{ display: "grid", gap: "1rem", marginTop: "1.25rem" }}>
+                  <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Quiz Title</label>
+                      <input
+                        value={quizTitle}
+                        onChange={(event) => setQuizTitle(event.target.value)}
+                        placeholder="Quiz Title"
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Topic / Prompt</label>
+                      <input
+                        value={quizTopic}
+                        onChange={(event) => setQuizTopic(event.target.value)}
+                        placeholder="Quiz Topic"
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Duration (minutes)</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="60"
+                        value={quizDuration}
+                        onChange={(event) => setQuizDuration(event.target.value)}
+                        placeholder="Duration"
+                      />
+                    </div>
+                    <div className="form-group" style={{ margin: 0 }}>
+                      <label>Number of Questions</label>
+                      <input
+                        type="number"
+                        min="1"
+                        max="20"
+                        value={questionCount}
+                        onChange={(event) => setQuestionCount(event.target.value)}
+                        placeholder="Questions"
+                      />
+                    </div>
                   </div>
 
                   <div className="form-actions">
@@ -616,96 +713,121 @@ function ManageSession() {
                       type="submit"
                       disabled={quizLoading || isSessionClosed}
                     >
-                      {quizLoading ? "Generating..." : "Generate AI Quiz"}
+                      <Sparkles size={16} /> {quizLoading ? "Generating Questions..." : "Generate AI Quiz"}
                     </button>
                   </div>
                 </form>
 
                 {generatedQuestions.length > 0 ? (
-                  <div className="page-section">
+                  <div className="page-section" style={{ display: "grid", gap: "1.25rem", marginTop: "1rem" }}>
                     {generatedQuestions.map((question, questionIndex) => (
                       <section className="hero-card" key={`${questionIndex}-${question.question || "question"}`}>
-                        <div className="form-actions" style={{ justifyContent: "space-between" }}>
-                          <strong>Question {questionIndex + 1}</strong>
+                        <div className="form-actions" style={{ justifyContent: "space-between", margin: 0, paddingBottom: "0.75rem", borderBottom: "1px solid var(--border)" }}>
+                          <span className="eyebrow">Question #{questionIndex + 1}</span>
                           <button
                             type="button"
-                            className="secondary"
+                            className="danger"
                             onClick={() => deleteQuestion(questionIndex)}
+                            style={{ padding: "0.35rem 0.75rem", fontSize: "0.85rem" }}
                           >
-                            Delete Question
+                            <Trash2 size={14} /> Remove
                           </button>
                         </div>
 
-                        <div className="field-grid" style={{ marginTop: "1rem" }}>
-                          <textarea
-                            value={question.question}
-                            onChange={(event) => updateQuestion(questionIndex, "question", event.target.value)}
-                            placeholder="Question text"
-                            rows={3}
-                          />
+                        <div style={{ display: "grid", gap: "0.85rem", marginTop: "1rem" }}>
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label>Question Text</label>
+                            <textarea
+                              value={question.question}
+                              onChange={(event) => updateQuestion(questionIndex, "question", event.target.value)}
+                              placeholder="Type question text..."
+                              rows={2}
+                            />
+                          </div>
 
-                          <input
-                            value={question.options?.[0] || ""}
-                            onChange={(event) => updateOption(questionIndex, 0, event.target.value)}
-                            placeholder="Option A"
-                          />
-                          <input
-                            value={question.options?.[1] || ""}
-                            onChange={(event) => updateOption(questionIndex, 1, event.target.value)}
-                            placeholder="Option B"
-                          />
-                          <input
-                            value={question.options?.[2] || ""}
-                            onChange={(event) => updateOption(questionIndex, 2, event.target.value)}
-                            placeholder="Option C"
-                          />
-                          <input
-                            value={question.options?.[3] || ""}
-                            onChange={(event) => updateOption(questionIndex, 3, event.target.value)}
-                            placeholder="Option D"
-                          />
-                          <input
-                            value={question.correctAnswer || ""}
-                            onChange={(event) => updateQuestion(questionIndex, "correctAnswer", event.target.value)}
-                            placeholder="Correct Answer"
-                          />
+                          <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label>Option A</label>
+                              <input
+                                value={question.options?.[0] || ""}
+                                onChange={(event) => updateOption(questionIndex, 0, event.target.value)}
+                                placeholder="Option A"
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label>Option B</label>
+                              <input
+                                value={question.options?.[1] || ""}
+                                onChange={(event) => updateOption(questionIndex, 1, event.target.value)}
+                                placeholder="Option B"
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label>Option C</label>
+                              <input
+                                value={question.options?.[2] || ""}
+                                onChange={(event) => updateOption(questionIndex, 2, event.target.value)}
+                                placeholder="Option C"
+                              />
+                            </div>
+                            <div className="form-group" style={{ margin: 0 }}>
+                              <label>Option D</label>
+                              <input
+                                value={question.options?.[3] || ""}
+                                onChange={(event) => updateOption(questionIndex, 3, event.target.value)}
+                                placeholder="Option D"
+                              />
+                            </div>
+                          </div>
+
+                          <div className="form-group" style={{ margin: 0 }}>
+                            <label style={{ color: "var(--success)" }}>Correct Answer (Exact String Match)</label>
+                            <input
+                              value={question.correctAnswer || ""}
+                              onChange={(event) => updateQuestion(questionIndex, "correctAnswer", event.target.value)}
+                              placeholder="Paste or type exact correct option string..."
+                              style={{ borderColor: "var(--success-border)" }}
+                            />
+                          </div>
                         </div>
                       </section>
                     ))}
 
-                    <div className="form-actions">
+                    <div className="form-actions" style={{ justifyContent: "flex-start" }}>
                       <button type="button" className="secondary" onClick={addQuestion}>
-                        Add Question
+                        <PlusCircle size={16} /> Add Custom Question
                       </button>
                     </div>
                   </div>
                 ) : (
                   <div className="empty-state" style={{ marginTop: "1rem" }}>
-                    <strong>No generated questions yet.</strong>
-                    <p>Generate an AI quiz to start editing questions, or add a blank question manually.</p>
+                    <FileText size={48} />
+                    <strong>No Questions in Quiz Editor</strong>
+                    <p>Click "Generate AI Quiz" above or add a blank question manually.</p>
                     <button type="button" className="secondary" onClick={addQuestion}>
-                      Add Blank Question
+                      <PlusCircle size={16} /> Add Blank Question
                     </button>
                   </div>
                 )}
 
-                <div className="form-actions" style={{ marginTop: "1rem" }}>
+                <div className="form-actions" style={{ marginTop: "1.5rem", justifyContent: "flex-end" }}>
                   <button
                     type="button"
                     className="primary-button"
                     onClick={saveQuiz}
                     disabled={quizLoading || isSessionClosed || generatedQuestions.length === 0}
                   >
-                    Save Quiz
+                    <Save size={16} /> Save Quiz Draft
                   </button>
 
                   <button
                     type="button"
-                    className="secondary"
+                    className="button"
                     onClick={publishQuiz}
                     disabled={quizLoading || isSessionClosed || !savedQuizId}
+                    style={{ background: "linear-gradient(135deg, #10b981, #059669)", color: "white" }}
                   >
-                    Publish Quiz
+                    <Send size={16} /> Publish Quiz Live
                   </button>
 
                   <button
@@ -714,18 +836,9 @@ function ManageSession() {
                     onClick={stopQuiz}
                     disabled={quizLoading || !quiz?.isActive}
                   >
-                    Stop Quiz
+                    <StopCircle size={16} /> Stop Active Quiz
                   </button>
                 </div>
-
-                {!session.isActive ? (
-                  <div className="empty-state" style={{ marginTop: 0 }}>
-                    <strong>This session is closed.</strong>
-                    <p>
-                      You can still review statistics and answered doubts, but students can no longer join or take the quiz.
-                    </p>
-                  </div>
-                ) : null}
               </section>
             </>
           ) : null}
@@ -734,11 +847,12 @@ function ManageSession() {
 
       <ConfirmDialog
         open={closingSession}
-        title="Close Session"
-        message="This session will be marked as closed and students will no longer be able to join."
+        title="Close Classroom Session?"
+        message="This session will be marked as closed. Students will no longer be able to join, ask doubts, or attempt quizzes."
         confirmLabel="Close Session"
         onConfirm={closeSession}
         onCancel={() => setClosingSession(false)}
+        danger
       />
 
       <Toast message={toast} type="success" />

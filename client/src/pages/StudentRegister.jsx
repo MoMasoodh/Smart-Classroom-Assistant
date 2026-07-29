@@ -2,12 +2,14 @@ import { useState } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import Navbar from "../components/Navbar";
 import Toast from "../components/Toast";
+import { useToast } from "../contexts/ToastContext";
 import api from "../services/api";
+import { UserPlus, Eye, EyeOff } from "lucide-react";
 import "./TeacherRegister.css";
 
 function StudentRegister() {
-
   const navigate = useNavigate();
+  const { addToast } = useToast();
 
   const [registerNumber, setRegisterNumber] = useState("");
   const [fullName, setFullName] = useState("");
@@ -15,13 +17,13 @@ function StudentRegister() {
   const [year, setYear] = useState("");
   const [password, setPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
+  const [showPassword, setShowPassword] = useState(false);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
   async function registerStudent(e) {
-
     e.preventDefault();
 
     if (
@@ -47,153 +49,149 @@ function StudentRegister() {
     }
 
     try {
-
       setLoading(true);
       setError("");
 
       await api.post("/student-auth/register", {
-        registerNumber,
-        fullName,
-        department,
+        registerNumber: registerNumber.trim().toUpperCase(),
+        fullName: fullName.trim(),
+        department: department.trim(),
         year,
         password,
       });
 
       setToast("Registration Successful");
-
-      navigate("/student-login", {
-        replace: true,
-      });
-
+      addToast("Student account created successfully! Please login.", "success");
+      navigate("/student-login", { replace: true });
     } catch (err) {
-
-      setError(
-        err.response?.data?.message ||
-        "Unable to register."
-      );
-
+      const msg = err.response?.data?.message || "Unable to register student account.";
+      setError(msg);
+      addToast(msg, "error");
     } finally {
-
       setLoading(false);
-
     }
-
   }
 
   return (
-
     <div className="auth-page">
-
       <Navbar />
 
-      <div className="auth-shell">
+      <div className="auth-shell fade-in">
+        <section className="auth-card register-card hero-card" style={{ maxWidth: "500px", margin: "2rem auto" }}>
+          <div
+            style={{
+              width: "48px",
+              height: "48px",
+              borderRadius: "50%",
+              background: "var(--primary-light)",
+              color: "var(--primary)",
+              display: "flex",
+              alignItems: "center",
+              justifyContent: "center",
+              marginBottom: "0.75rem",
+            }}
+          >
+            <UserPlus size={24} />
+          </div>
 
-        <section className="auth-card register-card">
-
-          <span className="eyebrow">
-            Student Access
-          </span>
-
-          <h1>Create Student Account</h1>
-
-          <p className="auth-copy">
-            Register once and join classroom sessions.
+          <span className="eyebrow">Student Registration</span>
+          <h1 style={{ fontSize: "1.75rem", margin: "0.5rem 0 0.25rem" }}>Create Student Account</h1>
+          <p className="auth-copy" style={{ color: "var(--text-muted)", fontSize: "0.95rem", margin: "0 0 1.25rem" }}>
+            Register once to access live classrooms, doubts, quizzes, and class leaderboards.
           </p>
 
-          <form
-            className="auth-form"
-            onSubmit={registerStudent}
-          >
+          <form className="auth-form" onSubmit={registerStudent} style={{ display: "grid", gap: "1rem" }}>
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Register Number / Student ID</label>
+              <input
+                type="text"
+                placeholder="e.g. 2024CS101"
+                value={registerNumber}
+                onChange={(e) => setRegisterNumber(e.target.value.toUpperCase())}
+                style={{ textTransform: "uppercase" }}
+              />
+            </div>
 
-            <input
-              type="text"
-              placeholder="Register Number"
-              value={registerNumber}
-              onChange={(e) =>
-                setRegisterNumber(e.target.value)
-              }
-            />
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Full Name</label>
+              <input
+                type="text"
+                placeholder="John Doe"
+                value={fullName}
+                onChange={(e) => setFullName(e.target.value)}
+              />
+            </div>
 
-            <input
-              type="text"
-              placeholder="Full Name"
-              value={fullName}
-              onChange={(e) =>
-                setFullName(e.target.value)
-              }
-            />
+            <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "0.75rem" }}>
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Department</label>
+                <input
+                  type="text"
+                  placeholder="e.g. Computer Science"
+                  value={department}
+                  onChange={(e) => setDepartment(e.target.value)}
+                />
+              </div>
 
-            <input
-              type="text"
-              placeholder="Department"
-              value={department}
-              onChange={(e) =>
-                setDepartment(e.target.value)
-              }
-            />
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Year of Study</label>
+                <input
+                  type="number"
+                  min="1"
+                  max="5"
+                  placeholder="e.g. 3"
+                  value={year}
+                  onChange={(e) => setYear(e.target.value)}
+                />
+              </div>
+            </div>
 
-            <input
-              type="number"
-              placeholder="Year"
-              value={year}
-              onChange={(e) =>
-                setYear(e.target.value)
-              }
-            />
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Password</label>
+              <div className="password-input-wrapper">
+                <input
+                  type={showPassword ? "text" : "password"}
+                  placeholder="At least 6 characters"
+                  value={password}
+                  onChange={(e) => setPassword(e.target.value)}
+                />
+                <button
+                  type="button"
+                  className="password-toggle-btn"
+                  onClick={() => setShowPassword(!showPassword)}
+                  tabIndex="-1"
+                >
+                  {showPassword ? <EyeOff size={18} /> : <Eye size={18} />}
+                </button>
+              </div>
+            </div>
 
-            <input
-              type="password"
-              placeholder="Password"
-              value={password}
-              onChange={(e) =>
-                setPassword(e.target.value)
-              }
-            />
+            <div className="form-group" style={{ margin: 0 }}>
+              <label>Confirm Password</label>
+              <input
+                type={showPassword ? "text" : "password"}
+                placeholder="Re-enter password"
+                value={confirmPassword}
+                onChange={(e) => setConfirmPassword(e.target.value)}
+              />
+            </div>
 
-            <input
-              type="password"
-              placeholder="Confirm Password"
-              value={confirmPassword}
-              onChange={(e) =>
-                setConfirmPassword(e.target.value)
-              }
-            />
+            {error ? <p className="error-text">{error}</p> : null}
 
-            {error &&
-              <p className="error-text">{error}</p>
-            }
-
-            <button
-              className="primary-button"
-              disabled={loading}
-            >
-              {loading
-                ? "Registering..."
-                : "Register"}
+            <button className="primary-button" disabled={loading} style={{ width: "100%", padding: "0.85rem" }}>
+              {loading ? "Registering..." : "Create Student Account"}
             </button>
-
           </form>
 
-          <p className="auth-footer">
-            Already have an account?{" "}
-            <Link to="/student-login">
-              Login
-            </Link>
+          <p className="auth-footer" style={{ textAlign: "center", marginTop: "1.25rem" }}>
+            Already registered? <Link to="/student-login">Log In</Link>
           </p>
-
         </section>
-
       </div>
 
-      <Toast
-        message={toast}
-        type="success"
-      />
-
+      <Toast message={toast} type="success" />
     </div>
-
   );
-
 }
 
 export default StudentRegister;

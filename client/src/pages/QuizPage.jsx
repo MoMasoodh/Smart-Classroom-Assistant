@@ -1,32 +1,37 @@
-
-import { useEffect, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
-import { Navigate } from "react-router-dom";
+import { useEffect, useState, useCallback } from "react";
+import { useLocation, useNavigate, Navigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Loading from "../components/Loading";
 import Toast from "../components/Toast";
-import QuizCard from "../components/QuizCard";
 import api from "../services/api";
 import { getActiveSession, getStudentProfile, getStudent } from "../services/storage";
+import {
+  Clock,
+  CheckCircle2,
+  AlertTriangle,
+  Trophy,
+  ArrowLeft,
+  ArrowRight,
+  Send,
+  HelpCircle,
+  Award,
+} from "lucide-react";
+import "./QuizPage.css";
 
 function QuizPage() {
   const navigate = useNavigate();
   const location = useLocation();
 
   const student = getStudent();
-  if (!student) {
-    return <Navigate to="/student-login" replace />;
-  }
-
   const storedProfile = getStudentProfile();
-  const session =
-    location.state?.session ||
-    storedProfile?.session ||
-    getActiveSession();
+  const session = location.state?.session || storedProfile?.session || getActiveSession();
   const studentName = location.state?.studentName || storedProfile?.studentName || student?.student?.fullName || "Student";
   const registerNumber = location.state?.registerNumber || storedProfile?.registerNumber || student?.student?.registerNumber || "";
   const sessionCode = session?.sessionCode || "";
+
+  const draftKey = `quiz-draft-answers:${sessionCode}:${registerNumber || studentName}`;
+
   const [quiz, setQuiz] = useState(null);
   const [answers, setAnswers] = useState([]);
   const [currentIndex, setCurrentIndex] = useState(0);
@@ -34,20 +39,77 @@ function QuizPage() {
   const [loading, setLoading] = useState(true);
   const [submitting, setSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState(null);
+  const [showReviewModal, setShowReviewModal] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
+  const loadQuiz = useCallback(async () => {
+    try {
+      setLoading(true);
+      setError("");
+
+      const checkRes = await api.get(
+        `/results/check/${sessionCode}/${encodeURIComponent(studentName)}?registerNumber=${registerNumber}`
+      );
+
+      if (checkRes.data?.alreadySubmitted) {
+        const res = checkRes.data.result;
+        const totalQ = res.totalQuestions || 5;
+        const pct = Math.round((res.score / totalQ) * 100);
+        setSubmittedResult({
+          score: res.score,
+          totalQuestions: totalQ,
+          percentage: pct,
+        });
+        setLoading(false);
+        return;
+      }
+
+      const sessionResponse = await api.get(`/sessions/${sessionCode}`);
+      if (sessionResponse.data.isActive === false) {
+        setError("This classroom session has been closed by the teacher.");
+        setLoading(false);
+        return;
+      }
+
+      const response = await api.get(`/quizzes/session/${sessionCode}`);
+      const quizData = response.data;
+      setQuiz(quizData);
+
+      let initialAnswers = Array(quizData.questions.length).fill("");
+      try {
+        const rawDraft = localStorage.getItem(draftKey);
+        if (rawDraft) {
+          const parsed = JSON.parse(rawDraft);
+          if (Array.isArray(parsed) && parsed.length === quizData.questions.length) {
+            initialAnswers = parsed;
+          }
+        }
+      } catch {
+        // Ignore storage read errors
+      }
+
+      setAnswers(initialAnswers);
+      setRemainingSeconds(Number(quizData.duration || 5) * 60);
+
+    } catch (err) {
+      setError(err.response?.data?.message || "Quiz is currently unavailable.");
+    } finally {
+      setLoading(false);
+    }
+  }, [sessionCode, studentName, registerNumber, draftKey]);
+
   useEffect(() => {
-    if (session?.sessionCode) {
+    if (sessionCode) {
       loadQuiz();
     } else {
       setLoading(false);
-      setError("Session not found.");
+      setError("No active session code found.");
     }
-  }, [session?.sessionCode]);
+  }, [sessionCode, loadQuiz]);
 
   useEffect(() => {
-    if (!quiz || submittedResult) return;
+    if (!quiz || submittedResult || loading || error) return;
 
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => {
@@ -61,186 +123,282 @@ function QuizPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quiz, submittedResult]);
+  }, [quiz, submittedResult, loading, error]);
 
-  async function loadQuiz() {
+  if (!student) {
+    return <Navigate to="/student-login" replace />;
+  }
+
+  const selectAnswer = (option) => {
+    const nextAnswers = [...answers];
+    nextAnswers[currentIndex] = option;
+    setAnswers(nextAnswers);
+
     try {
-      setLoading(true);
-
-      const sessionResponse = await api.get(
-        `/sessions/${session.sessionCode}`
-      );
-
-      if (!sessionResponse.data.isActive) {
-        setError("This session has been closed.");
-        return;
-      }
-
-      const response = await api.get(
-        `/quizzes/session/${session.sessionCode}`
-      );
-
-      setQuiz(response.data);
-      setAnswers(Array(response.data.questions.length).fill(""));
-      setRemainingSeconds(Number(response.data.duration || 0) * 60);
-    } catch (err) {
-      setError(err.response?.data?.message || "Quiz unavailable.");
-    } finally {
-      setLoading(false);
+      localStorage.setItem(draftKey, JSON.stringify(nextAnswers));
+    } catch {
+      // Ignore storage write errors
     }
-  }
+  };
 
-  function selectAnswer(option) {
-    const next = [...answers];
-    next[currentIndex] = option;
-    setAnswers(next);
-  }
-
-  async function submitQuiz(auto = false) {
+  const submitQuiz = async (isAuto = false) => {
     if (!quiz || submitting || submittedResult) return;
-
-    if (!auto) {
-      if (!window.confirm("Submit Quiz?")) return;
-    }
 
     try {
       setSubmitting(true);
+      setShowReviewModal(false);
 
       const score = quiz.questions.reduce(
-        (total, q, i) =>
-          total + (answers[i] === q.correctAnswer ? 1 : 0),
+        (total, q, i) => total + (answers[i] === q.correctAnswer ? 1 : 0),
         0
       );
 
-      const percentage = Math.round(
-        (score / quiz.questions.length) * 100
-      );
       const totalQuestions = quiz.questions.length;
+      const percentage = Math.round((score / totalQuestions) * 100);
 
-    await api.post("/results", {
-    sessionCode,
-    studentName: student.student.fullName,
-    registerNumber: student.student.registerNumber,
-    score,
-    totalQuestions,
-});
+      await api.post("/results", {
+        sessionCode,
+        studentName,
+        registerNumber,
+        score,
+        totalQuestions,
+      });
+
+      try {
+        localStorage.removeItem(draftKey);
+      } catch {
+        // Ignore storage removal errors
+      }
+
       setSubmittedResult({
         score,
         totalQuestions,
         percentage,
       });
 
-      setToast(auto ? "Quiz auto submitted" : "Quiz submitted");
+      setToast(isAuto ? "Time expired! Quiz submitted automatically." : "Quiz submitted successfully!");
+
     } catch (err) {
-      setError(err.response?.data?.message || "Unable to submit.");
+      setError(err.response?.data?.message || "Unable to submit quiz results.");
     } finally {
       setSubmitting(false);
     }
-  }
+  };
 
-  const answered = answers.filter(Boolean).length;
+  const answeredCount = answers.filter(Boolean).length;
+  const unansweredCount = (quiz?.questions?.length || 0) - answeredCount;
+  const isTimeWarning = remainingSeconds <= 60 && remainingSeconds > 0;
 
-  const time =
-    String(Math.floor(remainingSeconds / 60)).padStart(2, "0") +
-    ":" +
-    String(remainingSeconds % 60).padStart(2, "0");
+  const minutesStr = String(Math.floor(remainingSeconds / 60)).padStart(2, "0");
+  const secondsStr = String(remainingSeconds % 60).padStart(2, "0");
+  const timeFormatted = `${minutesStr}:${secondsStr}`;
 
   return (
-    <div className="app-page">
+    <div className="app-page quiz-page">
       <Sidebar />
+
       <div className="content-with-sidebar">
         <Header
-          title="Quiz"
-          subtitle={session?.sessionCode || ""}
-          actions={<span className="status-pill active">{time}</span>}
+          title="Classroom Quiz"
+          subtitle={session ? `${session.sessionName} (${sessionCode})` : "Active Quiz"}
+          actions={
+            !submittedResult && quiz ? (
+              <span className={`quiz-timer-pill ${isTimeWarning ? "warning" : ""}`}>
+                <Clock size={18} /> {timeFormatted}
+              </span>
+            ) : null
+          }
         />
 
-        <main className="page-shell page-grid">
-          {loading && <Loading label="Loading quiz" />}
+        <main className="page-shell fade-in">
+          {loading && <Loading label="Preparing quiz..." />}
 
-          {error && (
-            <div className="error-state">
-              <strong>Quiz unavailable</strong>
-              <p>{error}</p>
+          {error && !loading && (
+            <div className="error-state hero-card">
+              <strong style={{ color: "var(--danger)", fontSize: "1.1rem" }}>Quiz Unavailable</strong>
+              <p style={{ margin: "0.5rem 0 0", color: "var(--text-muted)" }}>{error}</p>
+              <button
+                className="secondary"
+                onClick={() => navigate("/student-dashboard")}
+                style={{ marginTop: "1rem" }}
+              >
+                <ArrowLeft size={16} /> Back to Dashboard
+              </button>
             </div>
           )}
 
-          {!loading && quiz && !submittedResult && (
+          {/* Active Quiz View */}
+          {!loading && quiz && !submittedResult && !error && (
             <>
-              <section className="hero-card page-hero">
-                <div className="field-grid">
-                  <div className="hero-stat">
-                    <strong>{currentIndex + 1}/{quiz.questions.length}</strong>
-                    <span>Progress</span>
-                  </div>
-
-                  <div className="hero-stat">
-                    <strong>{answered}</strong>
-                    <span>Answered</span>
-                  </div>
-
-                  <div className="hero-stat">
-                    <strong>{time}</strong>
-                    <span>Time Left</span>
+              {/* Sticky Top Bar */}
+              <div className="quiz-top-bar">
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <div>
+                    <span className="eyebrow">Question {currentIndex + 1} of {quiz.questions.length}</span>
+                    <h3 style={{ margin: "0.2rem 0 0", fontSize: "1.1rem" }}>{quiz.title || "Classroom Assessment"}</h3>
                   </div>
                 </div>
-              </section>
 
-              <QuizCard
-                question={quiz.questions[currentIndex]}
-                index={currentIndex}
-                total={quiz.questions.length}
-                selectedAnswer={answers[currentIndex]}
-                onSelect={selectAnswer}
-              />
+                <div style={{ display: "flex", alignItems: "center", gap: "1rem" }}>
+                  <span style={{ fontSize: "0.9rem", color: "var(--text-muted)", fontWeight: 600 }}>
+                    Progress: {answeredCount}/{quiz.questions.length} Answered
+                  </span>
 
-              <div className="form-actions">
-                <button
-                  className="secondary"
-                  disabled={currentIndex === 0}
-                  onClick={() => setCurrentIndex((i) => i - 1)}
-                >
-                  Previous
-                </button>
-
-                {currentIndex < quiz.questions.length - 1 ? (
                   <button
                     className="primary-button"
-                    onClick={() => setCurrentIndex((i) => i + 1)}
-                  >
-                    Next
-                  </button>
-                ) : (
-                  <button
-                    className="primary-button"
+                    onClick={() => setShowReviewModal(true)}
                     disabled={submitting}
-                    onClick={() => submitQuiz(false)}
                   >
-                    {submitting ? "Submitting..." : "Submit Quiz"}
+                    <Send size={16} /> Submit Quiz
                   </button>
-                )}
+                </div>
+              </div>
+
+              {/* Main Quiz Layout */}
+              <div className="quiz-main-layout">
+                <div className="quiz-card-wrapper">
+                  <div className="quiz-card-modern">
+                    <div className="quiz-question-header">
+                      <span className="quiz-question-tag">Question #{currentIndex + 1}</span>
+                      {answers[currentIndex] ? (
+                        <span className="status-pill active">
+                          <CheckCircle2 size={14} /> Answered
+                        </span>
+                      ) : (
+                        <span className="status-pill pending">
+                          <HelpCircle size={14} /> Unanswered
+                        </span>
+                      )}
+                    </div>
+
+                    <h2 className="quiz-question-text">{quiz.questions[currentIndex]?.question}</h2>
+
+                    <div className="quiz-options-list">
+                      {quiz.questions[currentIndex]?.options.map((option, optIdx) => {
+                        const letter = String.fromCharCode(65 + optIdx);
+                        const isSelected = answers[currentIndex] === option;
+
+                        return (
+                          <div
+                            key={optIdx}
+                            className={`quiz-option-pill ${isSelected ? "selected" : ""}`}
+                            onClick={() => selectAnswer(option)}
+                          >
+                            <div className="quiz-option-badge">{letter}</div>
+                            <span>{option}</span>
+                          </div>
+                        );
+                      })}
+                    </div>
+                  </div>
+
+                  {/* Navigation Buttons */}
+                  <div className="form-actions" style={{ justifyContent: "space-between" }}>
+                    <button
+                      className="secondary"
+                      disabled={currentIndex === 0}
+                      onClick={() => setCurrentIndex((i) => i - 1)}
+                    >
+                      <ArrowLeft size={16} /> Previous Question
+                    </button>
+
+                    {currentIndex < quiz.questions.length - 1 ? (
+                      <button
+                        className="primary-button"
+                        onClick={() => setCurrentIndex((i) => i + 1)}
+                      >
+                        Next Question <ArrowRight size={16} />
+                      </button>
+                    ) : (
+                      <button
+                        className="primary-button"
+                        onClick={() => setShowReviewModal(true)}
+                        disabled={submitting}
+                      >
+                        Review & Submit <Send size={16} />
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* Side Question Palette */}
+                <div className="quiz-palette-card">
+                  <h3 style={{ margin: "0 0 0.35rem", fontSize: "1.1rem" }}>Question Palette</h3>
+                  <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                    Jump directly to any question.
+                  </p>
+
+                  <div className="quiz-palette-grid">
+                    {quiz.questions.map((_, idx) => {
+                      const isAnswered = Boolean(answers[idx]);
+                      const isActive = idx === currentIndex;
+
+                      let classNames = "quiz-palette-btn";
+                      if (isAnswered) classNames += " answered";
+                      if (isActive) classNames += " active";
+
+                      return (
+                        <button
+                          key={idx}
+                          className={classNames}
+                          onClick={() => setCurrentIndex(idx)}
+                        >
+                          {idx + 1}
+                        </button>
+                      );
+                    })}
+                  </div>
+
+                  <div style={{ marginTop: "1.5rem", display: "flex", flexDirection: "column", gap: "0.5rem", fontSize: "0.82rem", color: "var(--text-muted)" }}>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ width: "12px", height: "12px", borderRadius: "3px", background: "var(--success)" }}></span>
+                      <span>Answered ({answeredCount})</span>
+                    </div>
+                    <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                      <span style={{ width: "12px", height: "12px", borderRadius: "3px", background: "var(--surface)", border: "1px solid var(--border-strong)" }}></span>
+                      <span>Unanswered ({unansweredCount})</span>
+                    </div>
+                  </div>
+                </div>
               </div>
             </>
           )}
 
+          {/* Submitted Result View */}
           {submittedResult && (
-            <div className="success-state">
-              <h2>
-                {submittedResult.percentage >= 70
-                  ? "🎉 Excellent"
-                  : submittedResult.percentage >= 40
-                  ? "👍 Good"
-                  : "📚 Keep Practicing"}
+            <section className="form-card hero-card" style={{ maxWidth: "600px", margin: "2rem auto", padding: "2.5rem", textAlign: "center" }}>
+              <span className="status-pill active" style={{ fontSize: "0.9rem", padding: "0.4rem 1rem", margin: "0 auto" }}>
+                <Award size={16} /> Quiz Completed
+              </span>
+
+              <h2 style={{ fontSize: "1.8rem", margin: "1rem 0 0.5rem" }}>
+                {submittedResult.percentage >= 80
+                  ? "Outstanding Work!"
+                  : submittedResult.percentage >= 50
+                  ? "Great Effort!"
+                  : "Keep Reviewing!"}
               </h2>
 
-              <p>
-                Score: {submittedResult.score}/
-                {submittedResult.totalQuestions}
+              <p style={{ color: "var(--text-muted)", fontSize: "1rem", margin: "0 0 1.5rem" }}>
+                Your response has been saved to the classroom leaderboard.
               </p>
 
-              <p>Percentage: {submittedResult.percentage}%</p>
+              <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+                <div className="hero-stat" style={{ textAlign: "center" }}>
+                  <strong style={{ fontSize: "2rem" }}>
+                    {submittedResult.score} / {submittedResult.totalQuestions}
+                  </strong>
+                  <span>Correct Answers</span>
+                </div>
+                <div className="hero-stat" style={{ textAlign: "center" }}>
+                  <strong style={{ fontSize: "2rem", color: "var(--primary)" }}>
+                    {submittedResult.percentage}%
+                  </strong>
+                  <span>Score Percentage</span>
+                </div>
+              </div>
 
-              <div className="form-actions">
+              <div className="form-actions" style={{ justifyContent: "center" }}>
                 <button
                   className="primary-button"
                   onClick={() =>
@@ -249,8 +407,60 @@ function QuizPage() {
                     })
                   }
                 >
-                  View Leaderboard
+                  <Trophy size={18} /> View Class Leaderboard
                 </button>
+                <button
+                  className="secondary"
+                  onClick={() => navigate("/student-dashboard")}
+                >
+                  <ArrowLeft size={16} /> Back to Dashboard
+                </button>
+              </div>
+            </section>
+          )}
+
+          {/* Submission Review Modal */}
+          {showReviewModal && (
+            <div className="modal-overlay">
+              <div className="modal-card">
+                <h2 style={{ margin: "0 0 0.5rem" }}>Confirm Quiz Submission</h2>
+                <p style={{ color: "var(--text-muted)", margin: "0 0 1.5rem" }}>
+                  Are you ready to submit your answers? You cannot change your choices after submitting.
+                </p>
+
+                <div className="field-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr", gap: "1rem", marginBottom: "1.5rem" }}>
+                  <div className="hero-stat" style={{ background: "var(--success-bg)", border: "1px solid var(--success-border)" }}>
+                    <strong style={{ color: "var(--success)" }}>{answeredCount}</strong>
+                    <span>Answered</span>
+                  </div>
+                  <div className="hero-stat" style={{ background: "var(--warning-bg)", border: "1px solid var(--warning-border)" }}>
+                    <strong style={{ color: "var(--warning)" }}>{unansweredCount}</strong>
+                    <span>Unanswered</span>
+                  </div>
+                </div>
+
+                {unansweredCount > 0 && (
+                  <p style={{ color: "var(--warning)", fontSize: "0.9rem", fontWeight: 600, margin: "0 0 1.5rem", display: "flex", alignItems: "center", gap: "0.35rem" }}>
+                    <AlertTriangle size={16} /> Note: You still have {unansweredCount} unanswered question{unansweredCount > 1 ? "s" : ""}.
+                  </p>
+                )}
+
+                <div className="form-actions" style={{ justifyContent: "flex-end" }}>
+                  <button
+                    className="secondary"
+                    onClick={() => setShowReviewModal(false)}
+                    disabled={submitting}
+                  >
+                    Review Questions
+                  </button>
+                  <button
+                    className="primary-button"
+                    onClick={() => submitQuiz(false)}
+                    disabled={submitting}
+                  >
+                    {submitting ? "Submitting..." : "Confirm & Submit"}
+                  </button>
+                </div>
               </div>
             </div>
           )}
