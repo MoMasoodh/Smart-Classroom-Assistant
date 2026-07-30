@@ -12,7 +12,7 @@ function Home() {
 
       <main className="home fade-in">
         {/* Hero Section */}
-        <section className="hero-card home-hero">
+        <section className="home-hero">
           <div className="hero-copy">
             <span className="eyebrow">
               <Sparkles size={14} /> AI-Powered Classroom Platform
@@ -63,7 +63,7 @@ function Home() {
         {/* Portal Selection Section */}
         <div className="card-container">
           <article className="card">
-            <div className="card-icon" style={{ background: "rgba(79, 70, 229, 0.1)", color: "var(--primary)" }}>
+            <div className="card-icon" style={{ background: "var(--primary-light)", color: "var(--primary)" }}>
               <GraduationCap size={32} />
             </div>
             <h2>Student Portal</h2>
@@ -81,7 +81,7 @@ function Home() {
           </article>
 
           <article className="card">
-            <div className="card-icon" style={{ background: "rgba(16, 185, 129, 0.1)", color: "var(--success)" }}>
+            <div className="card-icon" style={{ background: "var(--success-bg)", color: "var(--success)" }}>
               <UserCheck size={32} />
             </div>
             <h2>Teacher Portal</h2>

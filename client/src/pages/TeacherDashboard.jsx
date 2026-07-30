@@ -1,4 +1,4 @@
-import { useNavigate } from "react";
+import { useNavigate } from "react-router-dom";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DashboardCard from "../components/DashboardCard";
