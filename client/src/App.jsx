@@ -20,6 +20,10 @@ import TeacherRegister from "./pages/TeacherRegister";
 import ProtectedRoute from "./components/ProtectedRoute";
 import StudentRegister from "./pages/StudentRegister";
 import StudentLogin from "./pages/StudentLogin";
+import StudentHistory from "./pages/StudentHistory";
+import TeacherHistory from "./pages/TeacherHistory";
+import StudentProfile from "./pages/StudentProfile";
+import TeacherProfile from "./pages/TeacherProfile";
 
 import "./styles/App.css";
 
@@ -28,9 +32,13 @@ function App() {
     <Routes>
       <Route path="/" element={<Home />} />
       <Route path="/student-dashboard" element={<StudentDashboard />} />
+      <Route path="/student-history" element={<StudentHistory />} />
+      <Route path="/student-profile" element={<StudentProfile />} />
       <Route path="/teacher-login" element={<TeacherLogin />} />
       <Route path="/teacher-register" element={<TeacherRegister />} />
       <Route path="/teacher-dashboard" element={<ProtectedRoute><TeacherDashboard /></ProtectedRoute>} />
+      <Route path="/teacher-history" element={<ProtectedRoute><TeacherHistory /></ProtectedRoute>} />
+      <Route path="/teacher-profile" element={<ProtectedRoute><TeacherProfile /></ProtectedRoute>} />
       <Route path="/quiz" element={<QuizPage />} />
       <Route path="/leaderboard" element={<Leaderboard />} />
       <Route path="/statistics" element={<ProtectedRoute><Statistics /></ProtectedRoute>} />
@@ -45,8 +53,6 @@ function App() {
       <Route path="/answer-doubt" element={<ProtectedRoute><AnswerDoubt /></ProtectedRoute>} />
       <Route path="/join/:sessionCode" element={<StudentJoin />} />
       <Route path="/student-register" element={<StudentRegister />} />
-      <Route path="/student-login" element={<StudentLogin />} />
-   
     </Routes>
   );
 }

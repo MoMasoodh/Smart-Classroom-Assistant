@@ -42,12 +42,11 @@ function MyDoubts() {
       setLoading(true);
       setError("");
 
-      const response = await api.get(`/doubts/session/${session.sessionCode}`);
-      const myDoubts = response.data.filter(
-        (doubt) => doubt.studentName === studentName
+      const response = await api.get(
+        `/doubts/session/${session.sessionCode}/my-doubts?registerNumber=${registerNumber}&studentName=${encodeURIComponent(studentName)}`
       );
 
-      setDoubts(myDoubts);
+      setDoubts(Array.isArray(response.data) ? response.data : []);
     } catch (err) {
       console.log(err);
       setError(err.response?.data?.message || "Unable to load your doubts.");

@@ -47,9 +47,12 @@ ChartJS.register(
   Filler
 );
 
+import { useTheme } from "../contexts/ThemeContext";
+
 function Statistics() {
   const navigate = useNavigate();
   const location = useLocation();
+  const { isDark } = useTheme();
   const storedProfile = getStudentProfile();
   const session = location.state?.session || storedProfile?.session || getActiveSession();
 
@@ -109,6 +112,10 @@ function Statistics() {
     ],
   };
 
+  const gridColor = isDark ? "rgba(255, 255, 255, 0.1)" : "rgba(226, 232, 240, 0.6)";
+  const textColor = isDark ? "#f9fafb" : "#0f172a";
+  const mutedTextColor = isDark ? "#9ca3af" : "#64748b";
+
   const doughnutOptions = {
     responsive: true,
     maintainAspectRatio: false,
@@ -117,6 +124,7 @@ function Statistics() {
         position: "bottom",
         labels: {
           padding: 16,
+          color: textColor,
           font: { size: 13, family: "inherit", weight: "600" },
         },
       },
@@ -147,10 +155,11 @@ function Statistics() {
     scales: {
       y: {
         beginAtZero: true,
-        ticks: { stepSize: 1, precision: 0 },
-        grid: { color: "rgba(226, 232, 240, 0.6)" },
+        ticks: { stepSize: 1, precision: 0, color: mutedTextColor },
+        grid: { color: gridColor },
       },
       x: {
+        ticks: { color: mutedTextColor },
         grid: { display: false },
       },
     },
@@ -183,10 +192,11 @@ function Statistics() {
     scales: {
       y: {
         beginAtZero: true,
-        ticks: { stepSize: 1, precision: 0 },
-        grid: { color: "rgba(226, 232, 240, 0.6)" },
+        ticks: { stepSize: 1, precision: 0, color: mutedTextColor },
+        grid: { color: gridColor },
       },
       x: {
+        ticks: { color: mutedTextColor },
         grid: { display: false },
       },
     },

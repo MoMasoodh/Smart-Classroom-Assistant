@@ -61,6 +61,19 @@ function StudentJoin() {
 
       setActiveSession(session);
       saveStoredSession(session);
+
+      // Record Attendance in Backend & Socket
+      try {
+        await api.post("/attendance/join", {
+          sessionCode: session.sessionCode,
+          studentId: loggedInStudent.student._id,
+          registerNumber: loggedInStudent.student.registerNumber,
+          fullName: loggedInStudent.student.fullName,
+        });
+      } catch (attErr) {
+        console.error("Attendance record error:", attErr);
+      }
+
       addToast(`Joined classroom session ${session.sessionCode}!`, "success");
 
       navigate("/student-dashboard", {

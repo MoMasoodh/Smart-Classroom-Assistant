@@ -33,7 +33,7 @@ function Discussion() {
     }
   }, [session?.sessionCode]);
 
-  if (!student) {
+  if (!student && !teacherView) {
     return <Navigate to="/student-login" replace />;
   }
 

@@ -96,6 +96,18 @@ router.post("/", async (req, res) => {
       totalQuestions
     });
 
+    const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
+    await logTimelineEvent({
+      sessionCode,
+      sessionId: session._id,
+      eventType: "QUIZ_SUBMITTED",
+      title: `${studentName} Submitted Quiz`,
+      description: `Score: ${score} / ${totalQuestions}`,
+      metadata: { studentName, registerNumber, score, totalQuestions },
+    });
+
+    broadcastSessionUpdate(sessionCode);
+
     res.status(201).json({
       message: "Quiz submitted successfully.",
       result

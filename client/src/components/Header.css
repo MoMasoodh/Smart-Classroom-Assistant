@@ -7,9 +7,10 @@
   align-items: center;
   justify-content: space-between;
   gap: 1.5rem;
-  background: rgba(255, 255, 255, 0.85);
+  background: var(--navbar-bg);
   backdrop-filter: blur(16px);
-  border-bottom: 1px solid var(--border, #e2e8f0);
+  -webkit-backdrop-filter: blur(16px);
+  border-bottom: 1px solid var(--border);
   box-shadow: 0 4px 20px -2px rgba(15, 23, 42, 0.03);
 }
 

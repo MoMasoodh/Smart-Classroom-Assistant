@@ -4,6 +4,8 @@ const Doubt = require("../models/Doubt");
 const Session = require("../models/Session");
 const { requireTeacherAuth } = require("../middleware/authMiddleware");
 
+const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
+
 async function getOwnedSession(sessionCode, teacherId) {
   return Session.findOne({ sessionCode, teacherId });
 }
@@ -42,7 +44,7 @@ router.get("/session/:sessionCode/pending", requireTeacherAuth, async (req, res)
   }
 });
 
-// Get All Session Doubts
+// Get All Session Doubts (Teacher only)
 router.get("/session/:sessionCode", requireTeacherAuth, async (req, res) => {
   try {
     const session = await getOwnedSession(req.params.sessionCode, req.teacher.id);
@@ -53,8 +55,35 @@ router.get("/session/:sessionCode", requireTeacherAuth, async (req, res) => {
 
     const doubts = await Doubt.find({
       sessionCode: req.params.sessionCode,
-    });
+    }).sort({ createdAt: -1 });
 
+    res.status(200).json(doubts);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Get Student's Own Doubts for a Session
+router.get("/session/:sessionCode/my-doubts", async (req, res) => {
+  try {
+    const { registerNumber, studentName } = req.query;
+
+    if (!registerNumber && !studentName) {
+      return res.status(404).json({ message: "Student identifier required" });
+    }
+
+    const query = { sessionCode: req.params.sessionCode };
+
+    if (registerNumber) {
+      query.$or = [
+        { registerNumber: String(registerNumber).toUpperCase() },
+        { studentName: String(studentName || "") }
+      ];
+    } else {
+      query.studentName = String(studentName);
+    }
+
+    const doubts = await Doubt.find(query).sort({ createdAt: -1 });
     res.status(200).json(doubts);
   } catch (error) {
     res.status(500).json({ message: error.message });
@@ -70,7 +99,7 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "All fields are required" });
     }
 
-    const session = await Session.findOne({ sessionCode });
+    const session = await Session.findOne({ sessionCode: sessionCode.toUpperCase() });
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
@@ -91,12 +120,23 @@ router.post("/", async (req, res) => {
     const doubt = new Doubt({
       studentName,
       registerNumber,
-      sessionCode,
+      sessionCode: sessionCode.toUpperCase(),
       subject,
       question,
     });
 
     const savedDoubt = await doubt.save();
+
+    await logTimelineEvent({
+      sessionCode: sessionCode.toUpperCase(),
+      sessionId: session._id,
+      eventType: "DOUBT_ASKED",
+      title: `${studentName} Asked a Doubt`,
+      description: question.length > 60 ? `${question.substring(0, 60)}...` : question,
+      metadata: { doubtId: savedDoubt._id, registerNumber, studentName },
+    });
+
+    broadcastSessionUpdate(sessionCode);
 
     res.status(201).json(savedDoubt);
   } catch (error) {
@@ -126,6 +166,8 @@ router.put("/:id", requireTeacherAuth, async (req, res) => {
       return res.status(404).json({ message: "Session not found" });
     }
 
+    const teacherName = req.body.teacherName || req.teacher.fullName;
+
     const doubt = await Doubt.findByIdAndUpdate(
       req.params.id,
       {
@@ -133,10 +175,21 @@ router.put("/:id", requireTeacherAuth, async (req, res) => {
         status: "Answered",
         answeredAt: new Date(),
         teacherId: req.teacher.id,
-        teacherName: req.teacher.fullName,
+        teacherName,
       },
       { new: true }
     );
+
+    await logTimelineEvent({
+      sessionCode: existingDoubt.sessionCode,
+      sessionId: session._id,
+      eventType: "DOUBT_ANSWERED",
+      title: `${teacherName} Answered Doubt`,
+      description: `Answered question for ${existingDoubt.studentName}`,
+      metadata: { doubtId: doubt._id, studentName: existingDoubt.studentName, teacherName },
+    });
+
+    broadcastSessionUpdate(existingDoubt.sessionCode);
 
     res.status(200).json(doubt);
   } catch (error) {

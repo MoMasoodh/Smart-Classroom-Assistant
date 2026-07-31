@@ -21,6 +21,8 @@ import {
   UserCheck,
   Menu,
   X,
+  History,
+  User,
 } from "lucide-react";
 import "./Sidebar.css";
 
@@ -42,15 +44,19 @@ function Sidebar({ teacher = false }) {
         { to: "/teacher-dashboard", label: "Dashboard", icon: LayoutDashboard },
         { to: "/create-session", label: "Create Session", icon: PlusCircle },
         { to: "/my-sessions", label: "My Sessions", icon: BookOpen },
+        { to: "/teacher-history", label: "Session History", icon: History },
         { to: "/pending-doubts", label: "Pending Doubts", icon: HelpCircle },
         { to: "/statistics", label: "Statistics", icon: BarChart3 },
+        { to: "/teacher-profile", label: "Profile", icon: User },
       ]
     : [
         { to: "/student-dashboard", label: "Dashboard", icon: LayoutDashboard },
+        { to: "/student-history", label: "My History", icon: History },
         { to: "/my-doubts", label: "My Doubts", icon: HelpCircle },
         { to: "/discussion", label: "Discussion", icon: MessageSquare },
         { to: "/quiz", label: "Quiz", icon: FileText },
         { to: "/leaderboard", label: "Leaderboard", icon: Trophy },
+        { to: "/student-profile", label: "Profile", icon: User },
       ];
 
   const userName = teacher

@@ -7,6 +7,9 @@ const Result = require("../models/Result");
 const Quiz = require("../models/Quiz");
 const { requireTeacherAuth } = require("../middleware/authMiddleware");
 
+const Attendance = require("../models/Attendance");
+const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
+
 function generateSessionCode(subject) {
   const prefix = subject.substring(0, 4).toUpperCase();
   const randomNum = Math.floor(100 + Math.random() * 900);
@@ -59,6 +62,15 @@ router.post("/", requireTeacherAuth, async (req, res) => {
 
     const savedSession = await session.save();
 
+    await logTimelineEvent({
+      sessionCode,
+      sessionId: savedSession._id,
+      eventType: "SESSION_STARTED",
+      title: "Session Started",
+      description: `${sessionName} (${subject}) created by ${req.teacher.fullName}`,
+      metadata: { teacherName: req.teacher.fullName, duration: durationMinutes },
+    });
+
     res.status(201).json(savedSession);
 
   } catch (error) {
@@ -90,12 +102,13 @@ router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
     const pendingDoubts = await Doubt.countDocuments({ sessionCode: session.sessionCode, status: "Pending" });
     const quizAttempts = await Result.countDocuments({ sessionCode: session.sessionCode });
 
-    const [doubtStudents, resultStudents] = await Promise.all([
-      Doubt.distinct("studentName", { sessionCode: session.sessionCode }),
-      Result.distinct("studentName", { sessionCode: session.sessionCode }),
+    const [doubtStudents, resultStudents, attendanceStudents] = await Promise.all([
+      Doubt.distinct("registerNumber", { sessionCode: session.sessionCode }),
+      Result.distinct("registerNumber", { sessionCode: session.sessionCode }),
+      Attendance.distinct("registerNumber", { sessionCode: session.sessionCode }),
     ]);
 
-    const uniqueStudents = new Set([...doubtStudents, ...resultStudents]);
+    const uniqueStudents = new Set([...doubtStudents, ...resultStudents, ...attendanceStudents].filter(Boolean));
 
     return res.status(200).json({
       session: {
@@ -118,7 +131,7 @@ router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
 router.get("/:code", async (req, res) => {
   try {
     const session = await Session.findOne({
-      sessionCode: req.params.code,
+      sessionCode: req.params.code.toUpperCase(),
     });
 
     if (!session) {
@@ -131,6 +144,14 @@ router.get("/:code", async (req, res) => {
       session.isActive = false;
       session.closedAt = new Date();
       await session.save();
+
+      await logTimelineEvent({
+        sessionCode: session.sessionCode,
+        sessionId: session._id,
+        eventType: "SESSION_CLOSED",
+        title: "Session Closed",
+        description: "Session automatically closed upon expiration",
+      });
     }
 
     res.status(200).json(session);
@@ -158,6 +179,27 @@ router.put("/:id/close", requireTeacherAuth, async (req, res) => {
     }
 
     await Quiz.updateMany({ sessionCode: session.sessionCode }, { isActive: false });
+
+    // Close all open attendance records
+    const activeAttendances = await Attendance.find({ sessionCode: session.sessionCode, status: "Joined" });
+    const now = new Date();
+    for (const att of activeAttendances) {
+      att.status = "Left";
+      att.leaveTime = now;
+      att.totalDuration = Math.max(1, Math.round((now - att.joinTime) / 60000));
+      await att.save();
+    }
+
+    await logTimelineEvent({
+      sessionCode: session.sessionCode,
+      sessionId: session._id,
+      eventType: "SESSION_CLOSED",
+      title: "Session Closed",
+      description: `Closed by teacher ${req.teacher.fullName}`,
+      metadata: { closedAt: session.closedAt },
+    });
+
+    broadcastSessionUpdate(session.sessionCode);
 
     res.status(200).json(session);
 

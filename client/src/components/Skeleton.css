@@ -4,9 +4,9 @@
 .skeleton-button {
   background: linear-gradient(
     90deg,
-    #e2e8f0 25%,
-    #f1f5f9 37%,
-    #e2e8f0 63%
+    var(--surface-alt, #e2e8f0) 25%,
+    var(--border, #f1f5f9) 37%,
+    var(--surface-alt, #e2e8f0) 63%
   );
   background-size: 400% 100%;
   animation: skeletonShimmer 1.4s ease infinite;
@@ -40,8 +40,8 @@
 }
 
 .skeleton-card {
-  background: var(--surface, #ffffff);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg, 16px);
   padding: 1.5rem;
   box-shadow: var(--shadow-sm);
@@ -60,12 +60,12 @@
   justify-content: space-between;
   margin-top: 1.5rem;
   padding-top: 1rem;
-  border-top: 1px solid var(--border, #e2e8f0);
+  border-top: 1px solid var(--border);
 }
 
 .skeleton-stat-card {
-  background: var(--surface, #ffffff);
-  border: 1px solid var(--border, #e2e8f0);
+  background: var(--surface);
+  border: 1px solid var(--border);
   border-radius: var(--radius-lg, 16px);
   padding: 1.25rem;
 }

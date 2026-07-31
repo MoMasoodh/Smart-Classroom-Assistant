@@ -113,6 +113,8 @@ router.get("/session/:sessionCode", async (req, res) => {
   }
 });
 
+const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
+
 router.put("/:id/stop", requireTeacherAuth, async (req, res) => {
   try {
 
@@ -144,6 +146,8 @@ router.put("/:id/stop", requireTeacherAuth, async (req, res) => {
         returnDocument: "after"
       }
     );
+
+    broadcastSessionUpdate(quiz.sessionCode);
 
     res.json(updatedQuiz);
 
@@ -187,6 +191,17 @@ router.put("/:id/start", requireTeacherAuth, async (req, res) => {
         returnDocument: "after"
       }
     );
+
+    await logTimelineEvent({
+      sessionCode: quiz.sessionCode,
+      sessionId: session._id,
+      eventType: "QUIZ_STARTED",
+      title: "Quiz Started",
+      description: `Quiz "${quiz.title}" published live (${quiz.questions.length} questions)`,
+      metadata: { quizId: quiz._id, title: quiz.title },
+    });
+
+    broadcastSessionUpdate(quiz.sessionCode);
 
     res.json(updatedQuiz);
 

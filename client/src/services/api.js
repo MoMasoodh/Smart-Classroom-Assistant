@@ -1,28 +1,45 @@
 import axios from "axios";
 
 const api = axios.create({
-    baseURL: "http://localhost:5000/api"
+  baseURL: "http://localhost:5000/api",
 });
 
 api.interceptors.request.use((config) => {
-    if (typeof window !== "undefined") {
-        const authData = window.localStorage.getItem("smart-classroom-teacher-auth");
+  if (typeof window !== "undefined") {
+    let token = null;
 
-        if (authData) {
-            try {
-                const parsedAuth = JSON.parse(authData);
-
-                if (parsedAuth?.token) {
-                    config.headers = config.headers || {};
-                    config.headers.Authorization = `Bearer ${parsedAuth.token}`;
-                }
-            } catch {
-                // Ignore invalid stored auth and continue without a token.
-            }
+    // Check for student tab token first in sessionStorage
+    try {
+      const rawStudent = window.sessionStorage.getItem("student");
+      if (rawStudent) {
+        const parsedStudent = JSON.parse(rawStudent);
+        if (parsedStudent?.token) {
+          token = parsedStudent.token;
         }
+      }
+    } catch {}
+
+    // Fallback to teacher auth token in localStorage if no student tab token
+    if (!token) {
+      try {
+        const rawTeacherAuth = window.localStorage.getItem("smart-classroom-teacher-auth");
+        if (rawTeacherAuth) {
+          const parsedTeacher = JSON.parse(rawTeacherAuth);
+          if (parsedTeacher?.token) {
+            token = parsedTeacher.token;
+          }
+        }
+      } catch {}
     }
 
-    return config;
+    // Attach Bearer token if found
+    if (token) {
+      config.headers = config.headers || {};
+      config.headers.Authorization = `Bearer ${token}`;
+    }
+  }
+
+  return config;
 });
 
 export default api;

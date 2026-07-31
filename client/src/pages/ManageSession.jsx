@@ -9,6 +9,9 @@ import Toast from "../components/Toast";
 import { useToast } from "../contexts/ToastContext";
 
 import api from "../services/api";
+import { initSocket } from "../services/socket";
+import LiveStudentList from "../components/LiveStudentList";
+import SessionTimeline from "../components/SessionTimeline";
 import {
   Sparkles,
   Save,
@@ -105,14 +108,36 @@ function ManageSession() {
   const [quizLoading, setQuizLoading] = useState(false);
   const [generatedQuestions, setGeneratedQuestions] = useState([]);
   const [savedQuizId, setSavedQuizId] = useState(null);
+  const [refreshKey, setRefreshKey] = useState(0);
 
   useEffect(() => {
     if (sessionCode) {
       loadSessionData(false);
+
+      const socket = initSocket(sessionCode, "teacher");
+
+      socket.on("session_updated", () => {
+        loadSessionData(true);
+        setRefreshKey((prev) => prev + 1);
+      });
+
+      socket.on("timeline_event", (ev) => {
+        if (ev.eventType === "STUDENT_JOINED") {
+          addToast(`Student Joined: ${ev.title}`, "info");
+        } else if (ev.eventType === "DOUBT_ASKED") {
+          addToast(`New Doubt: ${ev.title}`, "warning");
+        }
+        setRefreshKey((prev) => prev + 1);
+      });
+
       const timer = setInterval(() => {
         loadSessionData(true);
       }, 15000);
-      return () => clearInterval(timer);
+
+      return () => {
+        clearInterval(timer);
+        socket.disconnect();
+      };
     } else {
       setLoading(false);
       setError("Session not found.");
@@ -638,6 +663,12 @@ function ManageSession() {
                   </div>
                 )}
               </section>
+
+              {/* Live Real-time Student Roster */}
+              <LiveStudentList sessionCode={session.sessionCode} refreshKey={refreshKey} />
+
+              {/* Real-time Session Timeline */}
+              <SessionTimeline sessionCode={session.sessionCode} refreshKey={refreshKey} />
 
               {/* AI Quiz Management Studio */}
               <section className="hero-card page-section" ref={quizSectionRef}>

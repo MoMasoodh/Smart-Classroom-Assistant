@@ -30,6 +30,8 @@ import {
 } from "lucide-react";
 import "./StudentDashboard.css";
 
+import { initSocket, sendHeartbeat, leaveSocketSession } from "../services/socket";
+
 function StudentDashboard() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -68,6 +70,49 @@ function StudentDashboard() {
       }
     }
   }, []);
+
+  // Socket & Heartbeat synchronization for Active Student Session
+  useEffect(() => {
+    if (!session?.sessionCode || !student?.student) return;
+
+    const sessionCode = session.sessionCode;
+    const studentData = {
+      studentId: student.student._id,
+      registerNumber: student.student.registerNumber,
+      fullName: student.student.fullName,
+    };
+
+    const socket = initSocket(sessionCode, "student", studentData);
+
+    // Socket listeners for live events
+    socket.on("session_updated", () => {
+      // Refresh session state if closed
+      api.get(`/sessions/${sessionCode}`).then((res) => {
+        if (!res.data.isActive) {
+          addToast("The classroom session has been closed by the teacher.", "info");
+          clearActiveSession();
+          clearStudentProfile();
+          setSession(null);
+        }
+      }).catch(() => {});
+    });
+
+    socket.on("timeline_event", (ev) => {
+      if (ev.eventType === "QUIZ_STARTED") {
+        addToast(`Quiz Alert: "${ev.title}" is now LIVE!`, "warning");
+      }
+    });
+
+    // Send heartbeat every 15s
+    const heartbeatTimer = setInterval(() => {
+      sendHeartbeat(sessionCode, student.student.registerNumber);
+    }, 15000);
+
+    return () => {
+      clearInterval(heartbeatTimer);
+      leaveSocketSession(sessionCode, studentData);
+    };
+  }, [session, student]);
 
   if (!student) {
     return <Navigate to="/student-login" replace />;

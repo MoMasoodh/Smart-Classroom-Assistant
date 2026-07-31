@@ -1,54 +1,74 @@
 const SESSION_LIST_KEY = "smart-classroom-sessions";
 const ACTIVE_SESSION_KEY = "smart-classroom-active-session";
 const STUDENT_PROFILE_KEY = "smart-classroom-student-profile";
+const STUDENT_KEY = "student";
 
-function readJson(key, fallback) {
-  if (typeof window === "undefined") {
-    return fallback;
-  }
+function readSessionStorageJson(key, fallback) {
+  if (typeof window === "undefined") return fallback;
+  try {
+    const rawValue = window.sessionStorage.getItem(key);
+    if (rawValue) return JSON.parse(rawValue);
+  } catch {}
+  return fallback;
+}
 
+function writeSessionStorageJson(key, value) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.setItem(key, JSON.stringify(value));
+  } catch {}
+}
+
+function removeSessionStorage(key) {
+  if (typeof window === "undefined") return;
+  try {
+    window.sessionStorage.removeItem(key);
+  } catch {}
+}
+
+function readLocalStorageJson(key, fallback) {
+  if (typeof window === "undefined") return fallback;
   try {
     const rawValue = window.localStorage.getItem(key);
-    return rawValue ? JSON.parse(rawValue) : fallback;
-  } catch {
-    return fallback;
-  }
+    if (rawValue) return JSON.parse(rawValue);
+  } catch {}
+  return fallback;
 }
 
-function writeJson(key, value) {
-  if (typeof window === "undefined") {
-    return;
-  }
-
-  window.localStorage.setItem(key, JSON.stringify(value));
+function writeLocalStorageJson(key, value) {
+  if (typeof window === "undefined") return;
+  try {
+    window.localStorage.setItem(key, JSON.stringify(value));
+  } catch {}
 }
 
+// Teacher session list storage (Local Storage shared across teacher tabs)
 export function getStoredSessions() {
-  return readJson(SESSION_LIST_KEY, []);
+  return readLocalStorageJson(SESSION_LIST_KEY, []);
 }
 
 export function saveStoredSession(session) {
   const sessions = getStoredSessions();
-  const nextSessions = sessions.filter((item) => item.sessionCode !== session.sessionCode && item._id !== session._id);
+  const nextSessions = sessions.filter(
+    (item) => item.sessionCode !== session.sessionCode && item._id !== session._id
+  );
 
   nextSessions.unshift({
     ...session,
     savedAt: new Date().toISOString(),
   });
 
-  writeJson(SESSION_LIST_KEY, nextSessions);
+  writeLocalStorageJson(SESSION_LIST_KEY, nextSessions);
   return nextSessions;
 }
 
 export function updateStoredSession(sessionCode, updates) {
   const sessions = getStoredSessions();
-  const nextSessions = sessions.map((session) => (
-    session.sessionCode === sessionCode
-      ? { ...session, ...updates }
-      : session
-  ));
+  const nextSessions = sessions.map((session) =>
+    session.sessionCode === sessionCode ? { ...session, ...updates } : session
+  );
 
-  writeJson(SESSION_LIST_KEY, nextSessions);
+  writeLocalStorageJson(SESSION_LIST_KEY, nextSessions);
   return nextSessions;
 }
 
@@ -56,56 +76,66 @@ export function getStoredSession(sessionCode) {
   return getStoredSessions().find((session) => session.sessionCode === sessionCode);
 }
 
+// Active classroom session for Student (Session Storage tab-isolated)
 export function setActiveSession(session) {
-  writeJson(ACTIVE_SESSION_KEY, session);
+  writeSessionStorageJson(ACTIVE_SESSION_KEY, session);
+  writeLocalStorageJson(ACTIVE_SESSION_KEY, session);
 }
 
 export function getActiveSession() {
-  return readJson(ACTIVE_SESSION_KEY, null);
+  const sessionTab = readSessionStorageJson(ACTIVE_SESSION_KEY, null);
+  if (sessionTab) return sessionTab;
+  return readLocalStorageJson(ACTIVE_SESSION_KEY, null);
 }
 
 export function clearActiveSession() {
-  if (typeof window === "undefined") {
-    return;
+  removeSessionStorage(ACTIVE_SESSION_KEY);
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(ACTIVE_SESSION_KEY);
   }
-
-  window.localStorage.removeItem(ACTIVE_SESSION_KEY);
 }
 
+// Student profile for current classroom session (Session Storage tab-isolated)
 export function setStudentProfile(profile) {
-  writeJson(STUDENT_PROFILE_KEY, profile);
+  writeSessionStorageJson(STUDENT_PROFILE_KEY, profile);
 }
 
 export function getStudentProfile() {
-  return readJson(STUDENT_PROFILE_KEY, null);
+  const profileTab = readSessionStorageJson(STUDENT_PROFILE_KEY, null);
+  if (profileTab) return profileTab;
+  return readLocalStorageJson(STUDENT_PROFILE_KEY, null);
 }
 
 export function clearStudentProfile() {
-  if (typeof window === "undefined") {
-    return;
+  removeSessionStorage(STUDENT_PROFILE_KEY);
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(STUDENT_PROFILE_KEY);
   }
-
-  window.localStorage.removeItem(STUDENT_PROFILE_KEY);
 }
 
 // ==========================================
-// Student Authentication
+// Student Authentication (Tab Isolated)
 // ==========================================
 
-const STUDENT_KEY = "student";
-
 export function saveStudent(studentData) {
-  writeJson(STUDENT_KEY, studentData);
+  writeSessionStorageJson(STUDENT_KEY, studentData);
+  // Also store in Local Storage under register-number specific key so reconnects work
+  if (studentData?.student?.registerNumber) {
+    writeLocalStorageJson(`${STUDENT_KEY}_${studentData.student.registerNumber}`, studentData);
+  }
 }
 
 export function getStudent() {
-  return readJson(STUDENT_KEY, null);
+  const studentTab = readSessionStorageJson(STUDENT_KEY, null);
+  if (studentTab) return studentTab;
+  return readLocalStorageJson(STUDENT_KEY, null);
 }
 
 export function clearStudent() {
-  if (typeof window === "undefined") {
-    return;
+  removeSessionStorage(STUDENT_KEY);
+  removeSessionStorage(ACTIVE_SESSION_KEY);
+  removeSessionStorage(STUDENT_PROFILE_KEY);
+  if (typeof window !== "undefined") {
+    window.localStorage.removeItem(STUDENT_KEY);
   }
-
-  window.localStorage.removeItem(STUDENT_KEY);
 }
