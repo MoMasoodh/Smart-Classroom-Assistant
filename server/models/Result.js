@@ -1,6 +1,12 @@
 const mongoose = require("mongoose");
 
 const resultSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    default: null,
+  },
+
   sessionCode: {
     type: String,
     required: true,
@@ -33,4 +39,8 @@ const resultSchema = new mongoose.Schema({
   }
 });
 
-module.exports = mongoose.model("Result", resultSchema);
+resultSchema.index({ sessionCode: 1, studentId: 1 });
+resultSchema.index({ sessionCode: 1, registerNumber: 1 });
+resultSchema.index({ sessionCode: 1, score: -1, submittedAt: 1 });
+
+module.exports = mongoose.model("Result", resultSchema);

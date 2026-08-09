@@ -5,8 +5,18 @@ client/node_modules/
 
 # Environment files
 .env
+.env.local
+.env.*.local
 server/.env
 client/.env
 
-# Logs
+# Build outputs
+client/dist/
+
+# Uploaded media (local dev)
+server/uploads/audio/*
+!server/uploads/audio/.gitkeep
+
+# OS / Editor files
+.DS_Store
 *.log

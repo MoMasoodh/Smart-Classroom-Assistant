@@ -4,10 +4,12 @@ import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Loading from "../components/Loading";
 import Toast from "../components/Toast";
+import VoiceRecorder from "../components/VoiceRecorder";
+import VoicePlayer from "../components/VoicePlayer";
 import api from "../services/api";
 import { useAuth } from "../contexts/AuthContext";
 import { useToast } from "../contexts/ToastContext";
-import { Sparkles, Save, ArrowLeft, Bot, HelpCircle } from "lucide-react";
+import { Sparkles, Save, ArrowLeft, Bot, HelpCircle, Mic, FileText } from "lucide-react";
 
 function AnswerDoubt() {
   const navigate = useNavigate();
@@ -20,24 +22,29 @@ function AnswerDoubt() {
   const autoGenerate = location.state?.mode === "ai";
   const teacherView = Boolean(location.state?.teacherView || teacher);
 
+  const [answerMode, setAnswerMode] = useState("text"); // 'text' | 'voice'
   const [answer, setAnswer] = useState(doubt?.answer || "");
+  const [voiceAnswerData, setVoiceAnswerData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
+  const questionPrompt = doubt?.type === "voice" ? (doubt?.transcription || doubt?.question) : doubt?.question;
+
   useEffect(() => {
-    if (autoGenerate && doubt?.question) {
+    if (autoGenerate && questionPrompt) {
       generateAIAnswer();
     }
-  }, [autoGenerate, doubt?.question]);
+  }, [autoGenerate, questionPrompt]);
 
   const generateAIAnswer = async () => {
+    if (!questionPrompt) return;
     try {
       setLoading(true);
       setError("");
       const response = await api.post("/ai/generate-answer", {
-        question: doubt.question,
+        question: questionPrompt,
       });
       setAnswer(response.data.answer || "");
       setToast("AI Answer Generated");
@@ -56,15 +63,32 @@ function AnswerDoubt() {
   const saveAnswer = async (event) => {
     event.preventDefault();
 
-    if (!answer.trim()) {
+    if (answerMode === "text" && !answer.trim()) {
       setError("Please enter an answer before saving.");
+      return;
+    }
+
+    if (answerMode === "voice" && !voiceAnswerData?.blob) {
+      setError("Please record your voice answer before saving.");
       return;
     }
 
     try {
       setSaving(true);
       setError("");
-      await api.put(`/doubts/${doubt._id}`, { answer });
+
+      if (answerMode === "voice") {
+        const formData = new FormData();
+        formData.append("audio", voiceAnswerData.blob, "teacher-voice-answer.webm");
+        if (answer) formData.append("answer", answer);
+
+        await api.put(`/doubts/${doubt._id}/voice-answer`, formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        await api.put(`/doubts/${doubt._id}`, { answer });
+      }
+
       setToast("Answer Saved");
       addToast("Answer posted and saved to classroom discussion!", "success");
       navigate("/pending-doubts", { state: { session, teacherView } });
@@ -108,7 +132,7 @@ function AnswerDoubt() {
       <div className="content-with-sidebar">
         <Header
           title="Answer Student Doubt"
-          subtitle={`${doubt.studentName} • ${doubt.subject}`}
+          subtitle={`${doubt.studentName} (${doubt.registerNumber || "Reg No N/A"}) • Subject: ${doubt.subject}`}
           actions={
             <button
               className="secondary"
@@ -128,20 +152,60 @@ function AnswerDoubt() {
                   {doubt.createdAt ? new Date(doubt.createdAt).toLocaleString() : ""}
                 </span>
               </div>
-              <h3 style={{ margin: "0.4rem 0 0.2rem", fontSize: "1.25rem" }}>{doubt.studentName}</h3>
+              <h3 style={{ margin: "0.4rem 0 0.2rem", fontSize: "1.25rem" }}>
+                {doubt.studentName} {doubt.registerNumber ? `(${doubt.registerNumber})` : ""}
+              </h3>
               <p style={{ margin: "0 0 1rem", color: "var(--primary)", fontWeight: 600 }}>Subject: {doubt.subject}</p>
-              <div
-                style={{
-                  background: "var(--surface-alt)",
-                  padding: "1rem 1.25rem",
-                  borderRadius: "12px",
-                  border: "1px solid var(--border)",
-                  fontSize: "1.05rem",
-                  lineHeight: 1.6,
-                }}
+              
+              {doubt.type === "voice" ? (
+                <div style={{ background: "var(--surface-alt)", padding: "1rem", borderRadius: "12px", border: "1px solid var(--border)" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.4rem", color: "var(--primary)", fontWeight: 600, marginBottom: "0.5rem" }}>
+                    <Mic size={16} /> Student Voice Recording:
+                  </div>
+                  {doubt.audioUrl && (
+                    <VoicePlayer
+                      src={doubt.audioUrl}
+                      duration={doubt.audioDuration}
+                      title="Student Voice Question"
+                    />
+                  )}
+                  {doubt.transcription && doubt.transcription !== "Voice Doubt Recording" && (
+                    <p style={{ marginTop: "0.5rem", fontStyle: "italic", color: "var(--text)" }}>
+                      Transcription: "{doubt.transcription}"
+                    </p>
+                  )}
+                </div>
+              ) : (
+                <div
+                  style={{
+                    background: "var(--surface-alt)",
+                    padding: "1rem 1.25rem",
+                    borderRadius: "12px",
+                    border: "1px solid var(--border)",
+                    fontSize: "1.05rem",
+                    lineHeight: 1.6,
+                  }}
+                >
+                  "{doubt.question}"
+                </div>
+              )}
+            </div>
+
+            <div className="filter-pill-group" style={{ marginBottom: "1rem", justifyContent: "flex-start" }}>
+              <button
+                type="button"
+                className={`filter-pill ${answerMode === "text" ? "active" : ""}`}
+                onClick={() => setAnswerMode("text")}
               >
-                "{doubt.question}"
-              </div>
+                <FileText size={16} /> Text Answer
+              </button>
+              <button
+                type="button"
+                className={`filter-pill ${answerMode === "voice" ? "active" : ""}`}
+                onClick={() => setAnswerMode("voice")}
+              >
+                <Mic size={16} /> 🎤 Voice Answer
+              </button>
             </div>
 
             <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
@@ -162,12 +226,27 @@ function AnswerDoubt() {
             {loading ? <Loading label="Consulting Gemini AI model for explanation..." /> : null}
 
             <form onSubmit={saveAnswer} style={{ display: "grid", gap: "1.25rem" }}>
-              <textarea
-                rows="8"
-                value={answer}
-                onChange={(e) => setAnswer(e.target.value)}
-                placeholder="Write your explanation here or generate an AI response above..."
-              />
+              {answerMode === "text" ? (
+                <textarea
+                  rows="7"
+                  value={answer}
+                  onChange={(e) => setAnswer(e.target.value)}
+                  placeholder="Write your explanation here or generate an AI response above..."
+                />
+              ) : (
+                <div style={{ display: "grid", gap: "1rem" }}>
+                  <VoiceRecorder
+                    onRecordComplete={(data) => setVoiceAnswerData(data)}
+                    onClear={() => setVoiceAnswerData(null)}
+                  />
+                  <textarea
+                    rows="3"
+                    value={answer}
+                    onChange={(e) => setAnswer(e.target.value)}
+                    placeholder="Optional text notes to accompany your voice answer..."
+                  />
+                </div>
+              )}
 
               {error ? <p className="error-text">{error}</p> : null}
 
@@ -180,7 +259,7 @@ function AnswerDoubt() {
                   <ArrowLeft size={16} /> Cancel
                 </button>
                 <button className="primary-button" type="submit" disabled={saving}>
-                  <Save size={16} /> {saving ? "Saving Answer..." : "Publish & Save Answer"}
+                  <Save size={16} /> {saving ? "Saving Answer..." : `Publish & Save ${answerMode === "voice" ? "Voice" : "Text"} Answer`}
                 </button>
               </div>
             </form>

@@ -79,20 +79,14 @@ export function getStoredSession(sessionCode) {
 // Active classroom session for Student (Session Storage tab-isolated)
 export function setActiveSession(session) {
   writeSessionStorageJson(ACTIVE_SESSION_KEY, session);
-  writeLocalStorageJson(ACTIVE_SESSION_KEY, session);
 }
 
 export function getActiveSession() {
-  const sessionTab = readSessionStorageJson(ACTIVE_SESSION_KEY, null);
-  if (sessionTab) return sessionTab;
-  return readLocalStorageJson(ACTIVE_SESSION_KEY, null);
+  return readSessionStorageJson(ACTIVE_SESSION_KEY, null);
 }
 
 export function clearActiveSession() {
   removeSessionStorage(ACTIVE_SESSION_KEY);
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(ACTIVE_SESSION_KEY);
-  }
 }
 
 // Student profile for current classroom session (Session Storage tab-isolated)
@@ -101,16 +95,11 @@ export function setStudentProfile(profile) {
 }
 
 export function getStudentProfile() {
-  const profileTab = readSessionStorageJson(STUDENT_PROFILE_KEY, null);
-  if (profileTab) return profileTab;
-  return readLocalStorageJson(STUDENT_PROFILE_KEY, null);
+  return readSessionStorageJson(STUDENT_PROFILE_KEY, null);
 }
 
 export function clearStudentProfile() {
   removeSessionStorage(STUDENT_PROFILE_KEY);
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(STUDENT_PROFILE_KEY);
-  }
 }
 
 // ==========================================
@@ -119,23 +108,14 @@ export function clearStudentProfile() {
 
 export function saveStudent(studentData) {
   writeSessionStorageJson(STUDENT_KEY, studentData);
-  // Also store in Local Storage under register-number specific key so reconnects work
-  if (studentData?.student?.registerNumber) {
-    writeLocalStorageJson(`${STUDENT_KEY}_${studentData.student.registerNumber}`, studentData);
-  }
 }
 
 export function getStudent() {
-  const studentTab = readSessionStorageJson(STUDENT_KEY, null);
-  if (studentTab) return studentTab;
-  return readLocalStorageJson(STUDENT_KEY, null);
+  return readSessionStorageJson(STUDENT_KEY, null);
 }
 
 export function clearStudent() {
   removeSessionStorage(STUDENT_KEY);
   removeSessionStorage(ACTIVE_SESSION_KEY);
   removeSessionStorage(STUDENT_PROFILE_KEY);
-  if (typeof window !== "undefined") {
-    window.localStorage.removeItem(STUDENT_KEY);
-  }
 }

@@ -16,7 +16,8 @@ router.post("/", async (req, res) => {
       studentName,
       registerNumber,
       score,
-      totalQuestions
+      totalQuestions,
+      studentId
     } = req.body;
 
     if (!sessionCode || !studentName) {
@@ -25,9 +26,11 @@ router.post("/", async (req, res) => {
       });
     }
 
+    const code = sessionCode.toUpperCase();
+
     // Check Session
     const session = await Session.findOne({
-      sessionCode
+      sessionCode: code
     });
 
     if (!session) {
@@ -53,7 +56,7 @@ router.post("/", async (req, res) => {
 
     // Check Quiz
     const quiz = await Quiz.findOne({
-      sessionCode
+      sessionCode: code
     });
 
     if (!quiz) {
@@ -68,19 +71,24 @@ router.post("/", async (req, res) => {
       });
     }
 
+    const Student = require("../models/Student");
+    let resolvedStudentId = studentId;
+    if (!resolvedStudentId && registerNumber) {
+      const sDoc = await Student.findOne({ registerNumber: registerNumber.toUpperCase() });
+      if (sDoc) resolvedStudentId = sDoc._id;
+    }
+
     // Already Submitted?
-    const existingResult = registerNumber
-      ? await Result.findOne({
-          sessionCode,
-          $or: [
-            { registerNumber },
-            { studentName }
-          ]
-        })
-      : await Result.findOne({
-          sessionCode,
-          studentName
-        });
+    const query = { sessionCode: code };
+    if (resolvedStudentId) {
+      query.studentId = resolvedStudentId;
+    } else if (registerNumber) {
+      query.$or = [{ registerNumber: registerNumber.toUpperCase() }, { studentName }];
+    } else {
+      query.studentName = studentName;
+    }
+
+    const existingResult = await Result.findOne(query);
 
     if (existingResult) {
       return res.status(400).json({
@@ -89,16 +97,17 @@ router.post("/", async (req, res) => {
     }
 
     const result = await Result.create({
-      sessionCode,
+      studentId: resolvedStudentId,
+      sessionCode: code,
       studentName,
-      registerNumber,
+      registerNumber: registerNumber ? registerNumber.toUpperCase() : "",
       score,
       totalQuestions
     });
 
     const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
     await logTimelineEvent({
-      sessionCode,
+      sessionCode: code,
       sessionId: session._id,
       eventType: "QUIZ_SUBMITTED",
       title: `${studentName} Submitted Quiz`,
@@ -106,7 +115,7 @@ router.post("/", async (req, res) => {
       metadata: { studentName, registerNumber, score, totalQuestions },
     });
 
-    broadcastSessionUpdate(sessionCode);
+    broadcastSessionUpdate(code);
 
     res.status(201).json({
       message: "Quiz submitted successfully.",
@@ -127,13 +136,9 @@ router.post("/", async (req, res) => {
 // Leaderboard
 // ===========================================
 router.get("/leaderboard/:sessionCode", async (req, res) => {
-
-  console.log("Leaderboard Route Hit");
-
   try {
-
     const leaderboard = await Result.find({
-      sessionCode: req.params.sessionCode
+      sessionCode: req.params.sessionCode.toUpperCase()
     }).sort({
       score: -1,
       submittedAt: 1
@@ -152,6 +157,7 @@ router.get("/leaderboard/:sessionCode", async (req, res) => {
 });
 
 
+
 // ===========================================
 // Check Student Result
 // Used to prevent multiple quiz attempts
@@ -161,16 +167,17 @@ router.get("/check/:sessionCode/:studentName", async (req, res) => {
   try {
 
     const { registerNumber } = req.query;
+    const code = req.params.sessionCode.toUpperCase();
+    const regNo = registerNumber ? String(registerNumber).toUpperCase() : "";
 
-    const result = registerNumber
-      ? await Result.findOne({
-          sessionCode: req.params.sessionCode,
-          registerNumber: String(registerNumber),
-        })
-      : await Result.findOne({
-          sessionCode: req.params.sessionCode,
-          studentName: req.params.studentName
-        });
+    const query = { sessionCode: code };
+    if (regNo) {
+      query.$or = [{ registerNumber: regNo }, { studentName: req.params.studentName }];
+    } else {
+      query.studentName = req.params.studentName;
+    }
+
+    const result = await Result.findOne(query);
 
     if (!result) {
       return res.json({

@@ -5,9 +5,10 @@ import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Toast from "../components/Toast";
 import Loading from "../components/Loading";
+import VoiceRecorder from "../components/VoiceRecorder";
 import { getStudentProfile, getActiveSession, getStudent } from "../services/storage";
 import { useToast } from "../contexts/ToastContext";
-import { HelpCircle, Send, ArrowLeft, Sparkles } from "lucide-react";
+import { HelpCircle, Send, ArrowLeft, Sparkles, Mic, FileText } from "lucide-react";
 import "./AskDoubt.css";
 
 function AskDoubt() {
@@ -17,8 +18,10 @@ function AskDoubt() {
 
   const student = getStudent();
 
+  const [doubtType, setDoubtType] = useState("text"); // 'text' | 'voice'
   const [subject, setSubject] = useState("");
   const [question, setQuestion] = useState("");
+  const [audioData, setAudioData] = useState(null);
   const [loading, setLoading] = useState(false);
   const [toast, setToast] = useState("");
   const [error, setError] = useState("");
@@ -36,8 +39,18 @@ function AskDoubt() {
   const submitDoubt = async (e) => {
     e.preventDefault();
 
-    if (!subject || !question) {
-      setError("Please fill in both Subject and Question.");
+    if (!subject) {
+      setError("Please specify the Subject / Topic.");
+      return;
+    }
+
+    if (doubtType === "text" && !question.trim()) {
+      setError("Please type your detailed question.");
+      return;
+    }
+
+    if (doubtType === "voice" && !audioData?.blob) {
+      setError("Please record your voice question before submitting.");
       return;
     }
 
@@ -45,13 +58,35 @@ function AskDoubt() {
       setLoading(true);
       setError("");
 
-      await api.post("/doubts", {
-        studentName: student.student.fullName,
-        registerNumber: student.student.registerNumber,
-        sessionCode,
-        subject,
-        question,
-      });
+      if (doubtType === "voice") {
+        const mimeType = audioData.mimeType || audioData.blob.type || "audio/webm";
+        const ext = mimeType.includes("mp4") ? ".mp4" : mimeType.includes("ogg") ? ".ogg" : ".webm";
+        const filename = `voice-doubt-${Date.now()}${ext}`;
+
+        const formData = new FormData();
+        formData.append("audio", audioData.blob, filename);
+        formData.append("studentId", student.student.id || student.student._id || "");
+        formData.append("studentName", student.student.fullName);
+        formData.append("registerNumber", student.student.registerNumber);
+        formData.append("sessionCode", sessionCode);
+        formData.append("subject", subject);
+        formData.append("transcription", audioData.transcription || "Voice Doubt Recording");
+        formData.append("audioDuration", audioData.duration || 0);
+        formData.append("audioMimeType", mimeType);
+
+        await api.post("/doubts/voice", formData, {
+          headers: { "Content-Type": "multipart/form-data" },
+        });
+      } else {
+        await api.post("/doubts", {
+          studentId: student.student.id || student.student._id || "",
+          studentName: student.student.fullName,
+          registerNumber: student.student.registerNumber,
+          sessionCode,
+          subject,
+          question,
+        });
+      }
 
       setToast("Doubt Submitted");
       addToast("Doubt submitted to teacher successfully!", "success");
@@ -92,7 +127,7 @@ function AskDoubt() {
         />
 
         <main className="page-shell fade-in">
-          <section className="form-card hero-card" style={{ maxWidth: "700px", margin: "0 auto" }}>
+          <section className="form-card hero-card" style={{ maxWidth: "720px", margin: "0 auto" }}>
             <div className="page-hero" style={{ marginBottom: "1.5rem" }}>
               <span className="eyebrow">
                 <Sparkles size={14} /> Real-Time Question
@@ -103,6 +138,23 @@ function AskDoubt() {
               <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem" }}>
                 Your question will appear instantly on the teacher's dashboard queue.
               </p>
+            </div>
+
+            <div className="filter-pill-group" style={{ marginBottom: "1.5rem", justifyContent: "center" }}>
+              <button
+                type="button"
+                className={`filter-pill ${doubtType === "text" ? "active" : ""}`}
+                onClick={() => setDoubtType("text")}
+              >
+                <FileText size={16} /> Text Question
+              </button>
+              <button
+                type="button"
+                className={`filter-pill ${doubtType === "voice" ? "active" : ""}`}
+                onClick={() => setDoubtType("voice")}
+              >
+                <Mic size={16} /> 🎤 Record Voice Doubt
+              </button>
             </div>
 
             <form onSubmit={submitDoubt} style={{ display: "grid", gap: "1.25rem" }}>
@@ -116,15 +168,25 @@ function AskDoubt() {
                 />
               </div>
 
-              <div className="form-group">
-                <label>Detailed Question</label>
-                <textarea
-                  rows="6"
-                  placeholder="Type your question or doubt clearly..."
-                  value={question}
-                  onChange={(e) => setQuestion(e.target.value)}
-                />
-              </div>
+              {doubtType === "text" ? (
+                <div className="form-group">
+                  <label>Detailed Question</label>
+                  <textarea
+                    rows="6"
+                    placeholder="Type your question or doubt clearly..."
+                    value={question}
+                    onChange={(e) => setQuestion(e.target.value)}
+                  />
+                </div>
+              ) : (
+                <div className="form-group">
+                  <label>Voice Doubt Recording</label>
+                  <VoiceRecorder
+                    onRecordComplete={(data) => setAudioData(data)}
+                    onClear={() => setAudioData(null)}
+                  />
+                </div>
+              )}
 
               {error ? <p className="error-text">{error}</p> : null}
 
@@ -142,7 +204,7 @@ function AskDoubt() {
                     "Submitting..."
                   ) : (
                     <>
-                      <Send size={16} /> Submit Question
+                      <Send size={16} /> Submit {doubtType === "voice" ? "Voice" : "Text"} Doubt
                     </>
                   )}
                 </button>

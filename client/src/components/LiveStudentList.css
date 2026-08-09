@@ -38,7 +38,7 @@
 
 .filter-pill-group {
   display: flex;
-  background: var(--bg-surface);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 8px;
   padding: 2px;
@@ -68,7 +68,7 @@
 }
 
 .student-card {
-  background: var(--bg-surface);
+  background: var(--surface);
   border: 1px solid var(--border);
   border-radius: 12px;
   padding: 1rem;
@@ -118,7 +118,7 @@
   margin: 0;
   font-size: 1.05rem;
   font-weight: 600;
-  color: var(--text-heading);
+  color: var(--text);
 }
 
 .student-reg {
@@ -138,7 +138,8 @@
   text-align: center;
   padding: 2.5rem;
   color: var(--text-muted);
-  background: var(--bg-surface);
+  background: var(--surface);
   border-radius: 12px;
   border: 1px dashed var(--border);
 }
+

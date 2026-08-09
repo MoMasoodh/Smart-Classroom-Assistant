@@ -171,7 +171,7 @@ router.put("/:id/close", requireTeacherAuth, async (req, res) => {
         isActive: false,
         closedAt: new Date(),
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     if (!session) {
@@ -209,6 +209,59 @@ router.put("/:id/close", requireTeacherAuth, async (req, res) => {
     });
   }
 });
+
+// Edit / Extend Active Session Expiration Time
+router.put("/:id/time", requireTeacherAuth, async (req, res) => {
+  try {
+    const { customExpiresAt, additionalMinutes } = req.body;
+    const session = await Session.findOne({ _id: req.params.id, teacherId: req.teacher.id });
+
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    let nextExpiresAt;
+    if (customExpiresAt) {
+      nextExpiresAt = new Date(customExpiresAt);
+    } else if (additionalMinutes) {
+      const currentExpiry = session.expiresAt && new Date(session.expiresAt) > new Date()
+        ? new Date(session.expiresAt)
+        : new Date();
+      nextExpiresAt = new Date(currentExpiry.getTime() + Number(additionalMinutes) * 60 * 1000);
+    } else {
+      return res.status(400).json({ message: "Please provide customExpiresAt or additionalMinutes" });
+    }
+
+    if (isNaN(nextExpiresAt.getTime()) || nextExpiresAt <= new Date()) {
+      return res.status(400).json({ message: "New expiration time must be in the future" });
+    }
+
+    const durationMin = Math.max(1, Math.round((nextExpiresAt.getTime() - session.createdAt.getTime()) / (60 * 1000)));
+
+    session.expiresAt = nextExpiresAt;
+    session.duration = durationMin;
+    session.isActive = true;
+    session.closedAt = null;
+
+    const savedSession = await session.save();
+
+    await logTimelineEvent({
+      sessionCode: session.sessionCode,
+      sessionId: session._id,
+      eventType: "SESSION_STARTED",
+      title: "Session Time Extended",
+      description: `End time extended to ${nextExpiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
+      metadata: { expiresAt: nextExpiresAt, duration: durationMin },
+    });
+
+    broadcastSessionUpdate(session.sessionCode);
+
+    res.status(200).json(savedSession);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
 
 router.get("/my-sessions/:id/answered", requireTeacherAuth, async (req, res) => {
   try {

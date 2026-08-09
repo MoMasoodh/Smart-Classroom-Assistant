@@ -52,4 +52,8 @@ const attendanceSchema = new mongoose.Schema({
   },
 });
 
+attendanceSchema.index({ sessionCode: 1, studentId: 1, status: 1 });
+attendanceSchema.index({ sessionCode: 1, registerNumber: 1, status: 1 });
+
 module.exports = mongoose.model("Attendance", attendanceSchema);
+

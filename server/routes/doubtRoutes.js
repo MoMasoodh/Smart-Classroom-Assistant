@@ -2,39 +2,50 @@ const express = require("express");
 const router = express.Router();
 const Doubt = require("../models/Doubt");
 const Session = require("../models/Session");
-const { requireTeacherAuth } = require("../middleware/authMiddleware");
-
+const Student = require("../models/Student");
+const { requireTeacherAuth, requireAuth } = require("../middleware/authMiddleware");
+const voiceUpload = require("../middleware/voiceUpload");
 const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
 
 async function getOwnedSession(sessionCode, teacherId) {
   return Session.findOne({ sessionCode, teacherId });
 }
 
-// Get Answered Doubts
+// Get Answered Doubts (Classmate feed masks identity to "Anonymous Student", Teacher view shows full identity)
 router.get("/session/:sessionCode/answered", async (req, res) => {
   try {
+    const isTeacherView = req.query.teacherView === "true";
     const doubts = await Doubt.find({
-      sessionCode: req.params.sessionCode,
+      sessionCode: req.params.sessionCode.toUpperCase(),
       status: "Answered",
     }).sort({ answeredAt: -1, createdAt: -1 });
 
-    res.status(200).json(doubts);
+    const formattedDoubts = doubts.map((d) => {
+      const obj = d.toObject();
+      if (!isTeacherView) {
+        obj.studentName = "Anonymous Student";
+        obj.registerNumber = "";
+      }
+      return obj;
+    });
+
+    res.status(200).json(formattedDoubts);
   } catch (error) {
     res.status(500).json({ message: error.message });
   }
 });
 
-// Get Pending Doubts
+// Get Pending Doubts (Teacher only - shows full student identity)
 router.get("/session/:sessionCode/pending", requireTeacherAuth, async (req, res) => {
   try {
-    const session = await getOwnedSession(req.params.sessionCode, req.teacher.id);
+    const session = await getOwnedSession(req.params.sessionCode.toUpperCase(), req.teacher.id);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
     }
 
     const doubts = await Doubt.find({
-      sessionCode: req.params.sessionCode,
+      sessionCode: req.params.sessionCode.toUpperCase(),
       status: "Pending",
     }).sort({ createdAt: -1 });
 
@@ -47,14 +58,14 @@ router.get("/session/:sessionCode/pending", requireTeacherAuth, async (req, res)
 // Get All Session Doubts (Teacher only)
 router.get("/session/:sessionCode", requireTeacherAuth, async (req, res) => {
   try {
-    const session = await getOwnedSession(req.params.sessionCode, req.teacher.id);
+    const session = await getOwnedSession(req.params.sessionCode.toUpperCase(), req.teacher.id);
 
     if (!session) {
       return res.status(404).json({ message: "Session not found" });
     }
 
     const doubts = await Doubt.find({
-      sessionCode: req.params.sessionCode,
+      sessionCode: req.params.sessionCode.toUpperCase(),
     }).sort({ createdAt: -1 });
 
     res.status(200).json(doubts);
@@ -66,18 +77,20 @@ router.get("/session/:sessionCode", requireTeacherAuth, async (req, res) => {
 // Get Student's Own Doubts for a Session
 router.get("/session/:sessionCode/my-doubts", async (req, res) => {
   try {
-    const { registerNumber, studentName } = req.query;
+    const { registerNumber, studentName, studentId } = req.query;
 
-    if (!registerNumber && !studentName) {
-      return res.status(404).json({ message: "Student identifier required" });
+    if (!registerNumber && !studentName && !studentId) {
+      return res.status(400).json({ message: "Student identifier required" });
     }
 
-    const query = { sessionCode: req.params.sessionCode };
+    const query = { sessionCode: req.params.sessionCode.toUpperCase() };
 
-    if (registerNumber) {
+    if (studentId) {
+      query.studentId = studentId;
+    } else if (registerNumber) {
       query.$or = [
         { registerNumber: String(registerNumber).toUpperCase() },
-        { studentName: String(studentName || "") }
+        { studentName: String(studentName || "") },
       ];
     } else {
       query.studentName = String(studentName);
@@ -90,10 +103,10 @@ router.get("/session/:sessionCode/my-doubts", async (req, res) => {
   }
 });
 
-// Create Doubt
+// Create Text Doubt
 router.post("/", async (req, res) => {
   try {
-    const { studentName, registerNumber, sessionCode, subject, question } = req.body;
+    const { studentName, registerNumber, sessionCode, subject, question, studentId } = req.body;
 
     if (!studentName || !sessionCode || !subject || !question) {
       return res.status(400).json({ message: "All fields are required" });
@@ -117,11 +130,19 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Session has expired" });
     }
 
+    let resolvedStudentId = studentId;
+    if (!resolvedStudentId && registerNumber) {
+      const sDoc = await Student.findOne({ registerNumber: registerNumber.toUpperCase() });
+      if (sDoc) resolvedStudentId = sDoc._id;
+    }
+
     const doubt = new Doubt({
+      studentId: resolvedStudentId,
       studentName,
-      registerNumber,
+      registerNumber: registerNumber ? registerNumber.toUpperCase() : "",
       sessionCode: sessionCode.toUpperCase(),
       subject,
+      type: "text",
       question,
     });
 
@@ -144,7 +165,79 @@ router.post("/", async (req, res) => {
   }
 });
 
-// Answer Doubt
+// Create Voice Doubt (Asynchronous Audio Upload)
+router.post("/voice", voiceUpload.single("audio"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Audio file is required" });
+    }
+
+    const { studentName, registerNumber, sessionCode, subject, transcription, studentId, audioDuration, audioMimeType } = req.body;
+
+    if (!studentName || !sessionCode || !subject) {
+      return res.status(400).json({ message: "Missing required doubt fields" });
+    }
+
+    const session = await Session.findOne({ sessionCode: sessionCode.toUpperCase() });
+
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    if (!session.isActive) {
+      return res.status(400).json({ message: "Session is closed" });
+    }
+
+    if (new Date() > session.expiresAt) {
+      session.isActive = false;
+      session.closedAt = new Date();
+      await session.save();
+
+      return res.status(400).json({ message: "Session has expired" });
+    }
+
+    let resolvedStudentId = studentId;
+    if (!resolvedStudentId && registerNumber) {
+      const sDoc = await Student.findOne({ registerNumber: registerNumber.toUpperCase() });
+      if (sDoc) resolvedStudentId = sDoc._id;
+    }
+
+    const audioUrl = `/uploads/audio/${req.file.filename}`;
+
+    const doubt = new Doubt({
+      studentId: resolvedStudentId,
+      studentName,
+      registerNumber: registerNumber ? registerNumber.toUpperCase() : "",
+      sessionCode: sessionCode.toUpperCase(),
+      subject,
+      type: "voice",
+      audioUrl,
+      audioDuration: Number(audioDuration) || 0,
+      audioMimeType: audioMimeType || req.file.mimetype || "audio/webm",
+      transcription: transcription || "Voice Doubt Recording",
+      question: transcription || "🎤 [Voice Doubt]",
+    });
+
+    const savedDoubt = await doubt.save();
+
+    await logTimelineEvent({
+      sessionCode: sessionCode.toUpperCase(),
+      sessionId: session._id,
+      eventType: "DOUBT_ASKED",
+      title: `${studentName} Asked a Voice Doubt`,
+      description: transcription || "Voice Doubt Recording",
+      metadata: { doubtId: savedDoubt._id, registerNumber, studentName, isVoice: true },
+    });
+
+    broadcastSessionUpdate(sessionCode);
+
+    res.status(201).json(savedDoubt);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Answer Doubt (Text Reply)
 router.put("/:id", requireTeacherAuth, async (req, res) => {
   try {
     if (!req.body.answer || !req.body.answer.trim()) {
@@ -172,12 +265,13 @@ router.put("/:id", requireTeacherAuth, async (req, res) => {
       req.params.id,
       {
         answer: req.body.answer.trim(),
+        answerType: "text",
         status: "Answered",
         answeredAt: new Date(),
         teacherId: req.teacher.id,
         teacherName,
       },
-      { new: true }
+      { returnDocument: "after" }
     );
 
     await logTimelineEvent({
@@ -187,6 +281,63 @@ router.put("/:id", requireTeacherAuth, async (req, res) => {
       title: `${teacherName} Answered Doubt`,
       description: `Answered question for ${existingDoubt.studentName}`,
       metadata: { doubtId: doubt._id, studentName: existingDoubt.studentName, teacherName },
+    });
+
+    broadcastSessionUpdate(existingDoubt.sessionCode);
+
+    res.status(200).json(doubt);
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
+});
+
+// Answer Doubt with Voice Answer Recording
+router.put("/:id/voice-answer", requireTeacherAuth, voiceUpload.single("audio"), async (req, res) => {
+  try {
+    if (!req.file) {
+      return res.status(400).json({ message: "Voice answer audio file required" });
+    }
+
+    const existingDoubt = await Doubt.findById(req.params.id);
+
+    if (!existingDoubt) {
+      return res.status(404).json({ message: "Doubt not found" });
+    }
+
+    const session = await Session.findOne({
+      sessionCode: existingDoubt.sessionCode,
+      teacherId: req.teacher.id,
+    });
+
+    if (!session) {
+      return res.status(404).json({ message: "Session not found" });
+    }
+
+    const teacherName = req.teacher.fullName;
+    const answerAudioUrl = `/uploads/audio/${req.file.filename}`;
+    const textAnswer = req.body.answer || "🎤 [Voice Answer Recording]";
+
+    const doubt = await Doubt.findByIdAndUpdate(
+      req.params.id,
+      {
+        answer: textAnswer,
+        answerType: "voice",
+        answerAudioUrl,
+        status: "Answered",
+        answeredAt: new Date(),
+        teacherId: req.teacher.id,
+        teacherName,
+      },
+      { returnDocument: "after" }
+    );
+
+    await logTimelineEvent({
+      sessionCode: existingDoubt.sessionCode,
+      sessionId: session._id,
+      eventType: "DOUBT_ANSWERED",
+      title: `${teacherName} Answered with Voice`,
+      description: `Voice answer for ${existingDoubt.studentName}`,
+      metadata: { doubtId: doubt._id, studentName: existingDoubt.studentName, teacherName, isVoice: true },
     });
 
     broadcastSessionUpdate(existingDoubt.sessionCode);
@@ -210,4 +361,4 @@ router.delete("/:id", requireTeacherAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;

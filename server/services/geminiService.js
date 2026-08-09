@@ -1,12 +1,15 @@
 const { GoogleGenerativeAI } = require("@google/generative-ai");
 
-const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY);
+const genAI = new GoogleGenerativeAI(process.env.GEMINI_API_KEY || "dummy-key");
 
 const model = genAI.getGenerativeModel({
-  model: "gemini-2.5-flash"
+  model: "gemini-1.5-flash"
 });
 
 async function generateAnswer(question) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured in environment variables.");
+  }
 
   const prompt = `
 You are an experienced classroom teacher.
@@ -23,6 +26,9 @@ ${question}
 }
 
 async function generateQuiz(topic, numberOfQuestions = 5) {
+  if (!process.env.GEMINI_API_KEY) {
+    throw new Error("GEMINI_API_KEY is not configured in environment variables.");
+  }
 
   const prompt = `
 You are an experienced teacher.
@@ -49,10 +55,15 @@ Do not include markdown, explanations, or code fences.
 
   const result = await model.generateContent(prompt);
 
-  return result.response.text();
+  let text = result.response.text().trim();
+  if (text.startsWith("```")) {
+    text = text.replace(/^```(json)?\n?/, "").replace(/\n?```$/, "").trim();
+  }
+
+  return text;
 }
 
 module.exports = {
   generateAnswer,
   generateQuiz
-};
+};

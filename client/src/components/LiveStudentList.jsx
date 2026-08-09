@@ -4,6 +4,8 @@ import { exportAttendanceReport as exportAttendance } from "../utils/exportUtils
 import { Users, FileSpreadsheet, Download, RefreshCw, Circle } from "lucide-react";
 import "./LiveStudentList.css";
 
+import { initSocket } from "../services/socket";
+
 function LiveStudentList({ sessionCode, refreshKey }) {
   const [students, setStudents] = useState([]);
   const [activeCount, setActiveCount] = useState(0);
@@ -14,7 +16,6 @@ function LiveStudentList({ sessionCode, refreshKey }) {
   const fetchLiveList = async () => {
     if (!sessionCode) return;
     try {
-      setLoading(true);
       const res = await api.get(`/attendance/session/${sessionCode}`);
       setStudents(res.data.students || []);
       setActiveCount(res.data.activeCount || 0);
@@ -28,7 +29,17 @@ function LiveStudentList({ sessionCode, refreshKey }) {
 
   useEffect(() => {
     fetchLiveList();
+    if (!sessionCode) return;
+
+    const socket = initSocket(sessionCode, "teacher");
+    const handleUpdate = () => fetchLiveList();
+
+    socket.on("session_updated", handleUpdate);
+    return () => {
+      socket.off("session_updated", handleUpdate);
+    };
   }, [sessionCode, refreshKey]);
+
 
   const filteredStudents = students.filter((s) => {
     if (filter === "joined") return s.status === "Joined";

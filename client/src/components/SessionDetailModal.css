@@ -14,7 +14,7 @@
 }
 
 .session-detail-modal {
-  background: var(--bg-card);
+  background: var(--surface);
   width: 100%;
   max-width: 900px;
   max-height: 90vh;
@@ -47,8 +47,8 @@
 }
 
 .icon-close-btn:hover {
-  background: var(--bg-surface);
-  color: var(--text-heading);
+  background: var(--surface-alt);
+  color: var(--text);
 }
 
 .modal-tabs {
@@ -56,7 +56,7 @@
   gap: 0.5rem;
   padding: 0.75rem 1.5rem 0;
   border-bottom: 1px solid var(--border);
-  background: var(--bg-surface);
+  background: var(--surface-alt);
   overflow-x: auto;
 }
 
@@ -105,8 +105,9 @@
 }
 
 .data-table th {
-  background: var(--bg-surface);
+  background: var(--surface-alt);
   color: var(--text-muted);
   font-size: 0.82rem;
   text-transform: uppercase;
 }
+

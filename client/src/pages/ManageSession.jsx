@@ -99,6 +99,9 @@ function ManageSession() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
   const [closingSession, setClosingSession] = useState(false);
+  const [editTimeModalOpen, setEditTimeModalOpen] = useState(false);
+  const [customExpiryInput, setCustomExpiryInput] = useState("");
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
   const [quizTopic, setQuizTopic] = useState(location.state?.session?.subject || "");
   const [quizTitle, setQuizTitle] = useState(
     location.state?.session ? `${location.state.session.sessionName} Quiz` : "Class Quiz"
@@ -110,25 +113,45 @@ function ManageSession() {
   const [savedQuizId, setSavedQuizId] = useState(null);
   const [refreshKey, setRefreshKey] = useState(0);
 
+  // Live countdown timer effect updating every 1s
+  useEffect(() => {
+    if (!session?.expiresAt || session?.isActive === false) {
+      setRemainingSeconds(0);
+      return;
+    }
+
+    const calculateRemaining = () => {
+      const diff = Math.max(0, Math.floor((new Date(session.expiresAt).getTime() - Date.now()) / 1000));
+      setRemainingSeconds(diff);
+    };
+
+    calculateRemaining();
+    const interval = setInterval(calculateRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [session?.expiresAt, session?.isActive]);
+
   useEffect(() => {
     if (sessionCode) {
       loadSessionData(false);
 
       const socket = initSocket(sessionCode, "teacher");
 
-      socket.on("session_updated", () => {
+      const handleSessionUpdate = () => {
         loadSessionData(true);
         setRefreshKey((prev) => prev + 1);
-      });
+      };
 
-      socket.on("timeline_event", (ev) => {
+      const handleTimelineEvent = (ev) => {
         if (ev.eventType === "STUDENT_JOINED") {
           addToast(`Student Joined: ${ev.title}`, "info");
         } else if (ev.eventType === "DOUBT_ASKED") {
           addToast(`New Doubt: ${ev.title}`, "warning");
         }
         setRefreshKey((prev) => prev + 1);
-      });
+      };
+
+      socket.on("session_updated", handleSessionUpdate);
+      socket.on("timeline_event", handleTimelineEvent);
 
       const timer = setInterval(() => {
         loadSessionData(true);
@@ -136,13 +159,50 @@ function ManageSession() {
 
       return () => {
         clearInterval(timer);
-        socket.disconnect();
+        socket.off("session_updated", handleSessionUpdate);
+        socket.off("timeline_event", handleTimelineEvent);
       };
     } else {
       setLoading(false);
       setError("Session not found.");
     }
   }, [sessionCode]);
+
+  const handleExtendSession = async (additionalMinutes, customDate) => {
+    try {
+      setQuizLoading(true);
+      const currentSessionRecord = await resolveSessionRecord();
+      if (!currentSessionRecord?._id) return;
+
+      const payload = customDate
+        ? { customExpiresAt: customDate }
+        : { additionalMinutes: Number(additionalMinutes) };
+
+      const res = await api.put(`/sessions/${currentSessionRecord._id}/time`, payload);
+      setSession(res.data);
+      setToast("Session Time Updated");
+      addToast("Session duration and expiration time updated successfully!", "success");
+      setEditTimeModalOpen(false);
+    } catch (err) {
+      const msg = err.response?.data?.message || "Unable to update session time.";
+      setError(msg);
+      addToast(msg, "error");
+    } finally {
+      setQuizLoading(false);
+    }
+  };
+
+  const formatCountdown = (secs) => {
+    if (secs <= 0) return "EXPIRED";
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    }
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
+
 
   useEffect(() => {
     if (!session) {
@@ -528,7 +588,7 @@ function ManageSession() {
 
           {!loading && !error ? (
             <>
-              {/* Hero Banner with Stats */}
+              {/* Hero Banner with Stats & Session Time Management */}
               <section className="hero-card page-hero">
                 <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", flexWrap: "wrap", gap: "1rem" }}>
                   <div>
@@ -537,13 +597,36 @@ function ManageSession() {
                     </span>
                     <h2 style={{ margin: "0.5rem 0 0.25rem", fontSize: "1.5rem" }}>{session.sessionName}</h2>
                     <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem" }}>
-                      PIN Code: <strong style={{ fontFamily: "monospace", fontSize: "1.05rem" }}>{session.sessionCode}</strong> • {session.duration} min •{" "}
-                      <span className={`status-pill ${isSessionClosed ? "closed" : "active"}`}>
-                        {isSessionClosed ? "Closed" : "Active Live"}
-                      </span>
+                      PIN Code: <strong style={{ fontFamily: "monospace", fontSize: "1.05rem" }}>{session.sessionCode}</strong> • Subject: <strong>{session.subject}</strong>
                     </p>
                   </div>
+
+                  {/* Active Session Time Management Panel */}
+                  <div style={{ background: "var(--surface-alt)", padding: "0.85rem 1.25rem", borderRadius: "var(--radius-md)", border: "1px solid var(--border)", minWidth: "240px", textAlign: "right" }}>
+                    <div style={{ display: "flex", alignItems: "center", justifyContent: "flex-end", gap: "0.5rem", marginBottom: "0.25rem" }}>
+                      <Clock size={16} style={{ color: remainingSeconds > 0 && !isSessionClosed ? "var(--success)" : "var(--danger)" }} />
+                      <span className={`status-pill ${isSessionClosed ? "closed" : remainingSeconds > 0 ? "active" : "pending"}`}>
+                        {isSessionClosed ? "CLOSED" : remainingSeconds > 0 ? "LIVE" : "EXPIRED"}
+                      </span>
+                    </div>
+                    <div style={{ fontSize: "1.6rem", fontWeight: 800, fontFamily: "monospace", color: remainingSeconds > 0 && !isSessionClosed ? "var(--text)" : "var(--danger)" }}>
+                      {isSessionClosed ? "00:00" : formatCountdown(remainingSeconds)}
+                    </div>
+                    <div style={{ fontSize: "0.8rem", color: "var(--text-muted)", marginBottom: "0.5rem" }}>
+                      Ends at: {session.expiresAt ? new Date(session.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+                    </div>
+                    {!isSessionClosed && (
+                      <button
+                        className="secondary"
+                        style={{ padding: "0.3rem 0.75rem", fontSize: "0.8rem" }}
+                        onClick={() => setEditTimeModalOpen(true)}
+                      >
+                        <Clock size={12} /> Edit Time / Extend
+                      </button>
+                    )}
+                  </div>
                 </div>
+
 
                 <div className="stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(160px, 1fr))", gap: "1rem", marginTop: "1.25rem" }}>
                   <div className="stat-card hero-card">
@@ -886,9 +969,74 @@ function ManageSession() {
         danger
       />
 
+      {editTimeModalOpen && (
+        <div className="modal-backdrop fade-in">
+          <div className="modal-card hero-card" style={{ width: "min(100%, 480px)" }}>
+            <div style={{ display: "flex", alignItems: "center", gap: "0.5rem", marginBottom: "0.5rem" }}>
+              <Clock size={20} style={{ color: "var(--primary)" }} />
+              <h3 style={{ margin: 0 }}>Edit Active Session Time</h3>
+            </div>
+            <p style={{ margin: "0 0 1.25rem", color: "var(--text-muted)", fontSize: "0.9rem" }}>
+              Current end time:{" "}
+              <strong>
+                {session.expiresAt ? new Date(session.expiresAt).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"}
+              </strong>
+            </p>
+
+            <div style={{ display: "grid", gap: "1rem" }}>
+              <div>
+                <label style={{ fontSize: "0.85rem", fontWeight: 600, color: "var(--text-muted)", marginBottom: "0.5rem", display: "block" }}>
+                  Quick Extension
+                </label>
+                <div style={{ display: "flex", gap: "0.5rem" }}>
+                  <button type="button" className="secondary" onClick={() => handleExtendSession(15)}>
+                    +15 mins
+                  </button>
+                  <button type="button" className="secondary" onClick={() => handleExtendSession(30)}>
+                    +30 mins
+                  </button>
+                  <button type="button" className="secondary" onClick={() => handleExtendSession(60)}>
+                    +60 mins
+                  </button>
+                </div>
+              </div>
+
+              <div className="form-group" style={{ margin: 0 }}>
+                <label>Set Custom End Time</label>
+                <input
+                  type="datetime-local"
+                  value={customExpiryInput}
+                  onChange={(e) => setCustomExpiryInput(e.target.value)}
+                />
+              </div>
+            </div>
+
+            <div className="form-actions" style={{ marginTop: "1.5rem" }}>
+              <button type="button" className="secondary" onClick={() => setEditTimeModalOpen(false)}>
+                Cancel
+              </button>
+              <button
+                type="button"
+                className="primary-button"
+                onClick={() => {
+                  if (customExpiryInput) {
+                    handleExtendSession(null, customExpiryInput);
+                  } else {
+                    addToast("Select quick extension or pick a custom end time.", "warning");
+                  }
+                }}
+              >
+                Update Session Time
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
       <Toast message={toast} type="success" />
     </div>
   );
 }
 
 export default ManageSession;
+

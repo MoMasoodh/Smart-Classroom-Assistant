@@ -1,6 +1,11 @@
 const mongoose = require("mongoose");
 
 const doubtSchema = new mongoose.Schema({
+  studentId: {
+    type: mongoose.Schema.Types.ObjectId,
+    ref: "Student",
+    default: null,
+  },
 
   studentName: {
     type: String,
@@ -23,12 +28,41 @@ const doubtSchema = new mongoose.Schema({
     required: true,
   },
 
+  type: {
+    type: String,
+    enum: ["text", "voice"],
+    default: "text",
+  },
+
   question: {
     type: String,
-    required: true,
+    required: function () {
+      return this.type === "text";
+    },
+  },
+
+  audioUrl: {
+    type: String,
+    default: "",
+  },
+
+  transcription: {
+    type: String,
+    default: "",
   },
 
   answer: {
+    type: String,
+    default: "",
+  },
+
+  answerType: {
+    type: String,
+    enum: ["text", "voice"],
+    default: "text",
+  },
+
+  answerAudioUrl: {
     type: String,
     default: "",
   },
@@ -59,7 +93,10 @@ const doubtSchema = new mongoose.Schema({
     type: Date,
     default: null,
   },
-
 });
 
-module.exports = mongoose.model("Doubt", doubtSchema);
+doubtSchema.index({ sessionCode: 1, createdAt: -1 });
+doubtSchema.index({ studentId: 1 });
+doubtSchema.index({ registerNumber: 1 });
+
+module.exports = mongoose.model("Doubt", doubtSchema);

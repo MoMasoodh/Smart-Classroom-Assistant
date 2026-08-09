@@ -55,6 +55,7 @@ function StudentDashboard() {
   const [joinLoading, setJoinLoading] = useState(false);
   const [joinError, setJoinError] = useState("");
   const [showLeaveModal, setShowLeaveModal] = useState(false);
+  const [remainingSeconds, setRemainingSeconds] = useState(0);
 
   useEffect(() => {
     const currentSession = getActiveSession();
@@ -71,37 +72,61 @@ function StudentDashboard() {
     }
   }, []);
 
+  // Live countdown timer effect for active student session
+  useEffect(() => {
+    if (!session?.expiresAt || session?.isActive === false) {
+      setRemainingSeconds(0);
+      return;
+    }
+
+    const calculateRemaining = () => {
+      const diff = Math.max(0, Math.floor((new Date(session.expiresAt).getTime() - Date.now()) / 1000));
+      setRemainingSeconds(diff);
+      if (diff <= 0 && session.isActive) {
+        addToast("This classroom session has expired.", "warning");
+      }
+    };
+
+    calculateRemaining();
+    const interval = setInterval(calculateRemaining, 1000);
+    return () => clearInterval(interval);
+  }, [session?.expiresAt, session?.isActive]);
+
   // Socket & Heartbeat synchronization for Active Student Session
   useEffect(() => {
     if (!session?.sessionCode || !student?.student) return;
 
     const sessionCode = session.sessionCode;
     const studentData = {
-      studentId: student.student._id,
+      studentId: student.student._id || student.student.id,
       registerNumber: student.student.registerNumber,
       fullName: student.student.fullName,
     };
 
     const socket = initSocket(sessionCode, "student", studentData);
 
-    // Socket listeners for live events
-    socket.on("session_updated", () => {
-      // Refresh session state if closed
+    const handleSessionUpdated = () => {
       api.get(`/sessions/${sessionCode}`).then((res) => {
         if (!res.data.isActive) {
           addToast("The classroom session has been closed by the teacher.", "info");
           clearActiveSession();
           clearStudentProfile();
           setSession(null);
+        } else {
+          setSession(res.data);
+          setActiveSession(res.data);
         }
       }).catch(() => {});
-    });
+    };
 
-    socket.on("timeline_event", (ev) => {
+    const handleTimelineEvent = (ev) => {
       if (ev.eventType === "QUIZ_STARTED") {
         addToast(`Quiz Alert: "${ev.title}" is now LIVE!`, "warning");
       }
-    });
+    };
+
+    socket.on("session_updated", handleSessionUpdated);
+    socket.on("timeline_event", handleTimelineEvent);
 
     // Send heartbeat every 15s
     const heartbeatTimer = setInterval(() => {
@@ -110,9 +135,23 @@ function StudentDashboard() {
 
     return () => {
       clearInterval(heartbeatTimer);
+      socket.off("session_updated", handleSessionUpdated);
+      socket.off("timeline_event", handleTimelineEvent);
       leaveSocketSession(sessionCode, studentData);
     };
-  }, [session, student]);
+  }, [session?.sessionCode, student]);
+
+  const formatCountdown = (secs) => {
+    if (secs <= 0) return "EXPIRED";
+    const hours = Math.floor(secs / 3600);
+    const minutes = Math.floor((secs % 3600) / 60);
+    const seconds = secs % 60;
+    if (hours > 0) {
+      return `${hours.toString().padStart(2, "0")}:${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+    }
+    return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
+  };
+
 
   if (!student) {
     return <Navigate to="/student-login" replace />;
@@ -326,6 +365,13 @@ function StudentDashboard() {
                     </strong>
                     <span>Classroom PIN</span>
                   </div>
+                  <div className="hero-stat" style={{ borderLeft: "3px solid var(--success)" }}>
+                    <strong style={{ fontFamily: "monospace", color: remainingSeconds > 0 ? "var(--success)" : "var(--danger)" }}>
+                      {formatCountdown(remainingSeconds)}
+                    </strong>
+                    <span>Time Remaining</span>
+                  </div>
+
                 </div>
               </section>
 

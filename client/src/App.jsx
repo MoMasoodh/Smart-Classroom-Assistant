@@ -24,6 +24,7 @@ import StudentHistory from "./pages/StudentHistory";
 import TeacherHistory from "./pages/TeacherHistory";
 import StudentProfile from "./pages/StudentProfile";
 import TeacherProfile from "./pages/TeacherProfile";
+import NotFound from "./pages/NotFound";
 
 import "./styles/App.css";
 
@@ -53,6 +54,7 @@ function App() {
       <Route path="/answer-doubt" element={<ProtectedRoute><AnswerDoubt /></ProtectedRoute>} />
       <Route path="/join/:sessionCode" element={<StudentJoin />} />
       <Route path="/student-register" element={<StudentRegister />} />
+      <Route path="*" element={<NotFound />} />
     </Routes>
   );
 }
