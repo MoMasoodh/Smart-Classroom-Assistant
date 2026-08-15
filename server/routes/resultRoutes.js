@@ -4,11 +4,12 @@ const router = express.Router();
 const Result = require("../models/Result");
 const Session = require("../models/Session");
 const Quiz = require("../models/Quiz");
+const { requireStudentAuth } = require("../middleware/authMiddleware");
 
 // ===========================================
 // Submit Quiz Result
 // ===========================================
-router.post("/", async (req, res) => {
+router.post("/", requireStudentAuth, async (req, res) => {
   try {
 
     const {
@@ -27,6 +28,16 @@ router.post("/", async (req, res) => {
     }
 
     const code = sessionCode.toUpperCase();
+    const authenticatedStudentId = req.student?.id;
+    const authenticatedRegNo = req.student?.registerNumber?.toUpperCase();
+
+    if (studentId && authenticatedStudentId && String(studentId) !== String(authenticatedStudentId)) {
+      return res.status(403).json({ message: "Forbidden - Cannot submit quiz for another student." });
+    }
+
+    if (registerNumber && authenticatedRegNo && registerNumber.toUpperCase() !== authenticatedRegNo) {
+      return res.status(403).json({ message: "Forbidden - Cannot submit quiz for another student." });
+    }
 
     // Check Session
     const session = await Session.findOne({
@@ -72,26 +83,32 @@ router.post("/", async (req, res) => {
     }
 
     const Student = require("../models/Student");
-    let resolvedStudentId = studentId;
+    let resolvedStudentId = studentId || authenticatedStudentId;
     if (!resolvedStudentId && registerNumber) {
       const sDoc = await Student.findOne({ registerNumber: registerNumber.toUpperCase() });
       if (sDoc) resolvedStudentId = sDoc._id;
     }
 
-    // Already Submitted?
+    if (!resolvedStudentId && authenticatedStudentId) {
+      resolvedStudentId = authenticatedStudentId;
+    }
+
+    const normalizedRegNo = (registerNumber || authenticatedRegNo || "").toUpperCase();
+    const finalStudentName = studentName || req.student.fullName;
+
     const query = { sessionCode: code };
     if (resolvedStudentId) {
       query.studentId = resolvedStudentId;
-    } else if (registerNumber) {
-      query.$or = [{ registerNumber: registerNumber.toUpperCase() }, { studentName }];
+    } else if (normalizedRegNo) {
+      query.registerNumber = normalizedRegNo;
     } else {
-      query.studentName = studentName;
+      query.studentName = finalStudentName;
     }
 
     const existingResult = await Result.findOne(query);
 
     if (existingResult) {
-      return res.status(400).json({
+      return res.status(409).json({
         message: "Quiz already submitted."
       });
     }
@@ -99,8 +116,8 @@ router.post("/", async (req, res) => {
     const result = await Result.create({
       studentId: resolvedStudentId,
       sessionCode: code,
-      studentName,
-      registerNumber: registerNumber ? registerNumber.toUpperCase() : "",
+      studentName: finalStudentName,
+      registerNumber: normalizedRegNo,
       score,
       totalQuestions
     });
@@ -110,9 +127,9 @@ router.post("/", async (req, res) => {
       sessionCode: code,
       sessionId: session._id,
       eventType: "QUIZ_SUBMITTED",
-      title: `${studentName} Submitted Quiz`,
+      title: `${finalStudentName} Submitted Quiz`,
       description: `Score: ${score} / ${totalQuestions}`,
-      metadata: { studentName, registerNumber, score, totalQuestions },
+      metadata: { studentName: finalStudentName, registerNumber: normalizedRegNo, score, totalQuestions },
     });
 
     broadcastSessionUpdate(code);
@@ -123,6 +140,9 @@ router.post("/", async (req, res) => {
     });
 
   } catch (error) {
+    if (error && error.code === 11000) {
+      return res.status(409).json({ message: "Quiz already submitted." });
+    }
 
     res.status(500).json({
       message: error.message
@@ -162,19 +182,26 @@ router.get("/leaderboard/:sessionCode", async (req, res) => {
 // Check Student Result
 // Used to prevent multiple quiz attempts
 // ===========================================
-router.get("/check/:sessionCode/:studentName", async (req, res) => {
+router.get("/check/:sessionCode/:studentName", requireStudentAuth, async (req, res) => {
 
   try {
 
     const { registerNumber } = req.query;
     const code = req.params.sessionCode.toUpperCase();
-    const regNo = registerNumber ? String(registerNumber).toUpperCase() : "";
+    const regNo = (registerNumber || req.student?.registerNumber || "").toUpperCase();
+    const studentName = req.params.studentName || req.student?.fullName;
+
+    if (!studentName) {
+      return res.status(400).json({ message: "Student identifier required." });
+    }
 
     const query = { sessionCode: code };
-    if (regNo) {
-      query.$or = [{ registerNumber: regNo }, { studentName: req.params.studentName }];
+    if (req.student?.id) {
+      query.studentId = req.student.id;
+    } else if (regNo) {
+      query.registerNumber = regNo;
     } else {
-      query.studentName = req.params.studentName;
+      query.studentName = studentName;
     }
 
     const result = await Result.findOne(query);

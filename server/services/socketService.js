@@ -114,10 +114,10 @@ function initSocket(server) {
     });
   });
 
-  // Periodic cleanup for stale heartbeats (>45 seconds without heartbeat)
+  // Periodic cleanup for stale heartbeats (>75 seconds without heartbeat)
   setInterval(async () => {
     try {
-      const staleTime = new Date(Date.now() - 45 * 1000);
+      const staleTime = new Date(Date.now() - 75 * 1000);
       const staleRecords = await Attendance.find({
         status: "Joined",
         lastSeen: { $lt: staleTime },
@@ -145,7 +145,7 @@ function initSocket(server) {
     } catch (err) {
       console.error("Error in stale heartbeat cleanup:", err);
     }
-  }, 20000);
+  }, 30000);
 
   return io;
 }
@@ -175,10 +175,16 @@ async function recordStudentJoin(sessionCode, studentData) {
     return null;
   }
 
-  let attendance = await Attendance.findOne({
-    sessionCode: code,
-    $or: [{ studentId: studentId }, { registerNumber: regNo }],
-  });
+  const query = { sessionCode: code };
+  if (studentId && regNo) {
+    query.$or = [{ studentId }, { registerNumber: regNo }];
+  } else if (studentId) {
+    query.studentId = studentId;
+  } else {
+    query.registerNumber = regNo;
+  }
+
+  let attendance = await Attendance.findOne(query);
 
   if (!attendance) {
     attendance = new Attendance({
@@ -270,13 +276,18 @@ async function logTimelineEvent({ sessionCode, sessionId, eventType, title, desc
     const code = sessionCode.toUpperCase();
     const regNo = metadata?.registerNumber ? String(metadata.registerNumber).toUpperCase() : "";
 
-    // Throttle repetitive student join/leave timeline events (prevent timeline spamming within 60s)
-    if (regNo && (eventType === "STUDENT_JOINED" || eventType === "STUDENT_LEFT")) {
+    let effectiveEventType = eventType;
+    if (effectiveEventType === "SESSION_STARTED" && (/extend/i.test(title || "") || /extend/i.test(description || ""))) {
+      effectiveEventType = "SESSION_EXTENDED";
+    }
+
+    // Throttle repetitive student join/leave timeline events (prevent timeline spamming within 30s)
+    if (regNo && (effectiveEventType === "STUDENT_JOINED" || effectiveEventType === "STUDENT_LEFT")) {
       const recentDuplicate = await Timeline.findOne({
         sessionCode: code,
-        eventType,
+        eventType: effectiveEventType,
         "metadata.registerNumber": regNo,
-        timestamp: { $gte: new Date(Date.now() - 60 * 1000) },
+        timestamp: { $gte: new Date(Date.now() - 30 * 1000) },
       });
 
       if (recentDuplicate) {
@@ -287,7 +298,7 @@ async function logTimelineEvent({ sessionCode, sessionId, eventType, title, desc
     const event = new Timeline({
       sessionCode: code,
       sessionId,
-      eventType,
+      eventType: effectiveEventType,
       title,
       description: description || "",
       metadata: metadata || {},

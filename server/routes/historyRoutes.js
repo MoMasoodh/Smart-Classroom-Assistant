@@ -7,6 +7,7 @@ const Result = require("../models/Result");
 const Quiz = require("../models/Quiz");
 const Timeline = require("../models/Timeline");
 const { requireTeacherAuth, requireStudentAuth, requireAuth } = require("../middleware/authMiddleware");
+const { dedupeResults, dedupeTimelineEvents, summarizeAttendances } = require("../utils/sessionReport");
 
 // Helper function to build student session history items
 async function buildStudentHistory(regNo, limit = 0) {
@@ -221,6 +222,10 @@ router.get("/session-details/:sessionCode", requireAuth, async (req, res) => {
       Quiz.findOne({ sessionCode }),
     ]);
 
+    const normalizedAttendances = summarizeAttendances(attendances.map((attendance) => attendance.toObject()));
+    const normalizedResults = dedupeResults(results.map((result) => result.toObject()));
+    const normalizedTimelineEvents = dedupeTimelineEvents(timelineEvents.map((event) => event.toObject()));
+
     // If student view, sanitize/privacy-protect classmates' private info
     let formattedDoubts = doubts;
     if (!isTeacher) {
@@ -241,10 +246,14 @@ router.get("/session-details/:sessionCode", requireAuth, async (req, res) => {
 
     res.status(200).json({
       session,
-      attendances: isTeacher ? attendances : attendances.map((a) => ({ ...a.toObject(), registerNumber: "" })),
+      attendances: isTeacher
+        ? normalizedAttendances
+        : normalizedAttendances.map((attendance) => ({ ...attendance, registerNumber: "" })),
       doubts: formattedDoubts,
-      results: isTeacher ? results : results.map((r) => ({ ...r.toObject(), registerNumber: "" })),
-      timelineEvents,
+      results: isTeacher
+        ? normalizedResults
+        : normalizedResults.map((result) => ({ ...result, registerNumber: "" })),
+      timelineEvents: normalizedTimelineEvents,
       quiz,
     });
   } catch (error) {

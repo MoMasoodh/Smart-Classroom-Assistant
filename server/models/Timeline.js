@@ -18,6 +18,7 @@ const timelineSchema = new mongoose.Schema({
     required: true,
     enum: [
       "SESSION_STARTED",
+      "SESSION_EXTENDED",
       "STUDENT_JOINED",
       "STUDENT_LEFT",
       "DOUBT_ASKED",

@@ -5,7 +5,7 @@ const QRCode = require("qrcode");
 const Doubt = require("../models/Doubt");
 const Result = require("../models/Result");
 const Quiz = require("../models/Quiz");
-const { requireTeacherAuth } = require("../middleware/authMiddleware");
+const { requireTeacherAuth, requireAuth } = require("../middleware/authMiddleware");
 
 const Attendance = require("../models/Attendance");
 const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
@@ -128,7 +128,7 @@ router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
   }
 });
 
-router.get("/:code", async (req, res) => {
+router.get("/:code", requireAuth, async (req, res) => {
   try {
     const session = await Session.findOne({
       sessionCode: req.params.code.toUpperCase(),
@@ -144,6 +144,17 @@ router.get("/:code", async (req, res) => {
       session.isActive = false;
       session.closedAt = new Date();
       await session.save();
+
+      await Quiz.updateMany({ sessionCode: session.sessionCode }, { isActive: false });
+
+      const activeAttendances = await Attendance.find({ sessionCode: session.sessionCode, status: "Joined" });
+      const now = new Date();
+      for (const att of activeAttendances) {
+        att.status = "Left";
+        att.leaveTime = now;
+        att.totalDuration = Math.max(1, Math.round((now - att.joinTime) / 60000));
+        await att.save();
+      }
 
       await logTimelineEvent({
         sessionCode: session.sessionCode,
@@ -248,7 +259,7 @@ router.put("/:id/time", requireTeacherAuth, async (req, res) => {
     await logTimelineEvent({
       sessionCode: session.sessionCode,
       sessionId: session._id,
-      eventType: "SESSION_STARTED",
+      eventType: "SESSION_EXTENDED",
       title: "Session Time Extended",
       description: `End time extended to ${nextExpiresAt.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}`,
       metadata: { expiresAt: nextExpiresAt, duration: durationMin },

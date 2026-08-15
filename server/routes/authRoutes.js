@@ -94,9 +94,10 @@ router.post("/login", async (req, res) => {
             {
                 id: teacher._id,
                 email: teacher.email,
-                fullName: teacher.fullName
+                fullName: teacher.fullName,
+                role: "teacher"
             },
-            process.env.JWT_SECRET,
+            process.env.JWT_SECRET || "dev-secret-key",
             {
                 expiresIn: "7d"
             }
@@ -108,9 +109,11 @@ router.post("/login", async (req, res) => {
             teacher: {
                 id: teacher._id,
                 fullName: teacher.fullName,
-                email: teacher.email
+                email: teacher.email,
+                role: "teacher"
             },
-            token
+            token,
+            role: "teacher"
         });
 
     } catch (error) {

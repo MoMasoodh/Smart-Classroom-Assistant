@@ -103,8 +103,9 @@ router.post("/login", async (req, res) => {
         id: student._id,
         registerNumber: student.registerNumber,
         fullName: student.fullName,
+        role: "student",
       },
-      process.env.JWT_SECRET,
+      process.env.JWT_SECRET || "dev-secret-key",
       {
         expiresIn: "7d",
       }
@@ -113,12 +114,14 @@ router.post("/login", async (req, res) => {
     res.json({
       success: true,
       token,
+      role: "student",
       student: {
         id: student._id,
         registerNumber: student.registerNumber,
         fullName: student.fullName,
         department: student.department,
         year: student.year,
+        role: "student",
       },
     });
 

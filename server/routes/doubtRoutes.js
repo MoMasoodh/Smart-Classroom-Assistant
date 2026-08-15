@@ -3,7 +3,7 @@ const router = express.Router();
 const Doubt = require("../models/Doubt");
 const Session = require("../models/Session");
 const Student = require("../models/Student");
-const { requireTeacherAuth, requireAuth } = require("../middleware/authMiddleware");
+const { requireTeacherAuth, requireAuth, requireStudentAuth } = require("../middleware/authMiddleware");
 const voiceUpload = require("../middleware/voiceUpload");
 const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
 
@@ -75,25 +75,30 @@ router.get("/session/:sessionCode", requireTeacherAuth, async (req, res) => {
 });
 
 // Get Student's Own Doubts for a Session
-router.get("/session/:sessionCode/my-doubts", async (req, res) => {
+router.get("/session/:sessionCode/my-doubts", requireStudentAuth, async (req, res) => {
   try {
     const { registerNumber, studentName, studentId } = req.query;
+    const authenticatedStudentId = req.student?.id;
+    const authenticatedRegNo = req.student?.registerNumber?.toUpperCase();
 
-    if (!registerNumber && !studentName && !studentId) {
-      return res.status(400).json({ message: "Student identifier required" });
+    if (studentId && authenticatedStudentId && String(studentId) !== String(authenticatedStudentId)) {
+      return res.status(403).json({ message: "Forbidden - Cannot access another student's doubts." });
+    }
+
+    if (registerNumber && authenticatedRegNo && String(registerNumber).toUpperCase() !== authenticatedRegNo) {
+      return res.status(403).json({ message: "Forbidden - Cannot access another student's doubts." });
     }
 
     const query = { sessionCode: req.params.sessionCode.toUpperCase() };
 
-    if (studentId) {
-      query.studentId = studentId;
-    } else if (registerNumber) {
-      query.$or = [
-        { registerNumber: String(registerNumber).toUpperCase() },
-        { studentName: String(studentName || "") },
-      ];
+    if (studentId || authenticatedStudentId) {
+      query.studentId = studentId || authenticatedStudentId;
+    } else if (registerNumber || authenticatedRegNo) {
+      query.registerNumber = String(registerNumber || authenticatedRegNo).toUpperCase();
+    } else if (studentName || req.student?.fullName) {
+      query.studentName = String(studentName || req.student.fullName);
     } else {
-      query.studentName = String(studentName);
+      return res.status(400).json({ message: "Student identifier required" });
     }
 
     const doubts = await Doubt.find(query).sort({ createdAt: -1 });
@@ -104,12 +109,23 @@ router.get("/session/:sessionCode/my-doubts", async (req, res) => {
 });
 
 // Create Text Doubt
-router.post("/", async (req, res) => {
+router.post("/", requireStudentAuth, async (req, res) => {
   try {
     const { studentName, registerNumber, sessionCode, subject, question, studentId } = req.body;
 
     if (!studentName || !sessionCode || !subject || !question) {
       return res.status(400).json({ message: "All fields are required" });
+    }
+
+    const authenticatedStudentId = req.student?.id;
+    const authenticatedRegNo = req.student?.registerNumber?.toUpperCase();
+
+    if (studentId && authenticatedStudentId && String(studentId) !== String(authenticatedStudentId)) {
+      return res.status(403).json({ message: "Forbidden - Cannot submit another student's doubt." });
+    }
+
+    if (registerNumber && authenticatedRegNo && String(registerNumber).toUpperCase() !== authenticatedRegNo) {
+      return res.status(403).json({ message: "Forbidden - Cannot submit another student's doubt." });
     }
 
     const session = await Session.findOne({ sessionCode: sessionCode.toUpperCase() });
@@ -130,16 +146,20 @@ router.post("/", async (req, res) => {
       return res.status(400).json({ message: "Session has expired" });
     }
 
-    let resolvedStudentId = studentId;
-    if (!resolvedStudentId && registerNumber) {
-      const sDoc = await Student.findOne({ registerNumber: registerNumber.toUpperCase() });
+    const finalStudentId = studentId || authenticatedStudentId;
+    const finalRegisterNumber = (registerNumber || authenticatedRegNo || "").toUpperCase();
+    const finalStudentName = studentName || req.student.fullName;
+
+    let resolvedStudentId = finalStudentId;
+    if (!resolvedStudentId && finalRegisterNumber) {
+      const sDoc = await Student.findOne({ registerNumber: finalRegisterNumber });
       if (sDoc) resolvedStudentId = sDoc._id;
     }
 
     const doubt = new Doubt({
       studentId: resolvedStudentId,
-      studentName,
-      registerNumber: registerNumber ? registerNumber.toUpperCase() : "",
+      studentName: finalStudentName,
+      registerNumber: finalRegisterNumber,
       sessionCode: sessionCode.toUpperCase(),
       subject,
       type: "text",
@@ -166,7 +186,7 @@ router.post("/", async (req, res) => {
 });
 
 // Create Voice Doubt (Asynchronous Audio Upload)
-router.post("/voice", voiceUpload.single("audio"), async (req, res) => {
+router.post("/voice", requireStudentAuth, voiceUpload.single("audio"), async (req, res) => {
   try {
     if (!req.file) {
       return res.status(400).json({ message: "Audio file is required" });
@@ -176,6 +196,17 @@ router.post("/voice", voiceUpload.single("audio"), async (req, res) => {
 
     if (!studentName || !sessionCode || !subject) {
       return res.status(400).json({ message: "Missing required doubt fields" });
+    }
+
+    const authenticatedStudentId = req.student?.id;
+    const authenticatedRegNo = req.student?.registerNumber?.toUpperCase();
+
+    if (studentId && authenticatedStudentId && String(studentId) !== String(authenticatedStudentId)) {
+      return res.status(403).json({ message: "Forbidden - Cannot submit another student's doubt." });
+    }
+
+    if (registerNumber && authenticatedRegNo && String(registerNumber).toUpperCase() !== authenticatedRegNo) {
+      return res.status(403).json({ message: "Forbidden - Cannot submit another student's doubt." });
     }
 
     const session = await Session.findOne({ sessionCode: sessionCode.toUpperCase() });
@@ -196,9 +227,13 @@ router.post("/voice", voiceUpload.single("audio"), async (req, res) => {
       return res.status(400).json({ message: "Session has expired" });
     }
 
-    let resolvedStudentId = studentId;
-    if (!resolvedStudentId && registerNumber) {
-      const sDoc = await Student.findOne({ registerNumber: registerNumber.toUpperCase() });
+    const finalStudentId = studentId || authenticatedStudentId;
+    const finalRegisterNumber = (registerNumber || authenticatedRegNo || "").toUpperCase();
+    const finalStudentName = studentName || req.student.fullName;
+
+    let resolvedStudentId = finalStudentId;
+    if (!resolvedStudentId && finalRegisterNumber) {
+      const sDoc = await Student.findOne({ registerNumber: finalRegisterNumber });
       if (sDoc) resolvedStudentId = sDoc._id;
     }
 
@@ -206,8 +241,8 @@ router.post("/voice", voiceUpload.single("audio"), async (req, res) => {
 
     const doubt = new Doubt({
       studentId: resolvedStudentId,
-      studentName,
-      registerNumber: registerNumber ? registerNumber.toUpperCase() : "",
+      studentName: finalStudentName,
+      registerNumber: finalRegisterNumber,
       sessionCode: sessionCode.toUpperCase(),
       subject,
       type: "voice",
@@ -361,4 +396,4 @@ router.delete("/:id", requireTeacherAuth, async (req, res) => {
   }
 });
 
-module.exports = router;
+module.exports = router;
