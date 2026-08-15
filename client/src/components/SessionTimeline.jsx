@@ -57,6 +57,26 @@ function SessionTimeline({ sessionCode, refreshKey }) {
     fetchTimeline();
   }, [sessionCode, refreshKey]);
 
+  // Filter out repetitive consecutive join/leave events for the same student
+  const filteredEvents = events.filter((ev, idx) => {
+    if (idx === 0) return true;
+    const prev = events[idx - 1];
+    const isStudentEvent = ev.eventType === "STUDENT_JOINED" || ev.eventType === "STUDENT_LEFT";
+    const prevIsStudentEvent = prev.eventType === "STUDENT_JOINED" || prev.eventType === "STUDENT_LEFT";
+
+    if (isStudentEvent && prevIsStudentEvent) {
+      const sameStudent =
+        (ev.metadata?.registerNumber && prev.metadata?.registerNumber && ev.metadata.registerNumber === prev.metadata.registerNumber) ||
+        ev.title === prev.title;
+      const sameType = ev.eventType === prev.eventType;
+      
+      if (sameStudent && sameType) {
+        return false;
+      }
+    }
+    return true;
+  });
+
   return (
     <div className="timeline-container hero-card">
       <div className="timeline-header">
@@ -66,13 +86,13 @@ function SessionTimeline({ sessionCode, refreshKey }) {
         <h3 style={{ margin: "0.25rem 0 0", fontSize: "1.25rem" }}>Real-time Chronological Activity Stream</h3>
       </div>
 
-      {loading && events.length === 0 ? (
+      {loading && filteredEvents.length === 0 ? (
         <div style={{ textAlign: "center", padding: "2rem", color: "var(--text-muted)" }}>Loading timeline...</div>
-      ) : events.length === 0 ? (
+      ) : filteredEvents.length === 0 ? (
         <div className="empty-timeline">No activity recorded yet for this session.</div>
       ) : (
         <div className="timeline-list">
-          {events.map((ev, index) => {
+          {filteredEvents.map((ev, index) => {
             const timeStr = ev.timestamp
               ? new Date(ev.timestamp).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
               : "";

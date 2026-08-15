@@ -2,6 +2,9 @@ import { useEffect, useState } from "react";
 import api from "../services/api";
 import LiveStudentList from "./LiveStudentList";
 import SessionTimeline from "./SessionTimeline";
+import DoubtCard from "./DoubtCard";
+import VoicePlayer from "./VoicePlayer";
+import { formatDate, formatTime } from "../utils/dateUtils";
 import { exportAttendanceReport, exportLeaderboardReport, exportToCSV, exportToPDF } from "../utils/exportUtils";
 import {
   X,
@@ -15,6 +18,8 @@ import {
   FileSpreadsheet,
   FileText,
   CheckCircle2,
+  Calendar,
+  Mic,
 } from "lucide-react";
 import "./SessionDetailModal.css";
 
@@ -52,9 +57,9 @@ function SessionDetailModal({ sessionCode, onClose }) {
     const headers = ["Student Name", "Reg No", "Status", "Join Time", "Duration (min)"];
     const rows = attendances.map((a) => [
       a.fullName,
-      a.registerNumber,
+      a.registerNumber || "—",
       a.status,
-      a.joinTime ? new Date(a.joinTime).toLocaleTimeString() : "—",
+      a.joinTime ? formatTime(a.joinTime) : "—",
       a.totalDuration || 0,
     ]);
     exportToPDF(
@@ -65,17 +70,20 @@ function SessionDetailModal({ sessionCode, onClose }) {
     );
   };
 
+  const answeredDoubtsCount = doubts.filter((d) => d.status === "Answered").length;
+  const voiceDoubtsCount = doubts.filter((d) => d.type === "voice").length;
+
   return (
     <div className="modal-backdrop fade-in">
-      <div className="session-detail-modal hero-card">
-        <div className="modal-header">
+      <div className="session-detail-modal hero-card" style={{ maxWidth: "900px", width: "95%" }}>
+        <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
           <div>
-            <span className="eyebrow">Session Detailed Report</span>
-            <h2 style={{ margin: "0.25rem 0 0", fontSize: "1.4rem" }}>
+            <span className="eyebrow">Classroom Session Detailed Report</span>
+            <h2 style={{ margin: "0.25rem 0 0.15rem", fontSize: "1.4rem" }}>
               {session?.sessionName || sessionCode} • {session?.subject}
             </h2>
             <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.88rem" }}>
-              PIN: <strong style={{ fontFamily: "monospace" }}>{sessionCode}</strong> • Teacher: {session?.teacherName}
+              PIN: <strong style={{ fontFamily: "monospace" }}>{sessionCode}</strong> • Teacher: {session?.teacherName} • Created: {formatDate(session?.createdAt)}
             </p>
           </div>
 
@@ -90,7 +98,7 @@ function SessionDetailModal({ sessionCode, onClose }) {
         </div>
 
         {/* Tab Navigation */}
-        <div className="modal-tabs">
+        <div className="modal-tabs" style={{ display: "flex", gap: "0.5rem", padding: "0.75rem 0", borderBottom: "1px solid var(--border)", overflowX: "auto" }}>
           <button
             className={`modal-tab ${activeTab === "overview" ? "active" : ""}`}
             onClick={() => setActiveTab("overview")}
@@ -101,7 +109,7 @@ function SessionDetailModal({ sessionCode, onClose }) {
             className={`modal-tab ${activeTab === "attendance" ? "active" : ""}`}
             onClick={() => setActiveTab("attendance")}
           >
-            <Users size={15} /> Attendance ({attendances.length})
+            <Users size={15} /> Roster & Attendance ({attendances.length})
           </button>
           <button
             className={`modal-tab ${activeTab === "leaderboard" ? "active" : ""}`}
@@ -123,7 +131,7 @@ function SessionDetailModal({ sessionCode, onClose }) {
           </button>
         </div>
 
-        <div className="modal-body">
+        <div className="modal-body" style={{ padding: "1.25rem 0 0" }}>
           {loading ? (
             <div style={{ textAlign: "center", padding: "3rem", color: "var(--text-muted)" }}>
               Loading complete session analytics...
@@ -132,22 +140,25 @@ function SessionDetailModal({ sessionCode, onClose }) {
             <>
               {activeTab === "overview" && (
                 <div className="tab-content fade-in">
-                  <div className="overview-stats-grid">
-                    <div className="stat-card hero-card">
+                  <div className="overview-stats-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(180px, 1fr))", gap: "1rem" }}>
+                    <div className="stat-card hero-card" style={{ padding: "1.25rem" }}>
                       <span className="eyebrow">Students Joined</span>
-                      <h3>{attendances.length}</h3>
+                      <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0" }}>{attendances.length}</h3>
                     </div>
-                    <div className="stat-card hero-card">
-                      <span className="eyebrow">Total Doubts</span>
-                      <h3>{doubts.length}</h3>
+                    <div className="stat-card hero-card" style={{ padding: "1.25rem" }}>
+                      <span className="eyebrow">Total Doubts Asked</span>
+                      <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0" }}>{doubts.length}</h3>
+                      <span style={{ fontSize: "0.82rem", color: "var(--text-muted)" }}>{answeredDoubtsCount} Answered • {voiceDoubtsCount} Voice</span>
                     </div>
-                    <div className="stat-card hero-card">
+                    <div className="stat-card hero-card" style={{ padding: "1.25rem" }}>
                       <span className="eyebrow">Quiz Submissions</span>
-                      <h3>{results.length}</h3>
+                      <h3 style={{ fontSize: "1.8rem", margin: "0.4rem 0 0" }}>{results.length}</h3>
                     </div>
-                    <div className="stat-card hero-card">
-                      <span className="eyebrow">Status</span>
-                      <h3 style={{ textTransform: "capitalize" }}>{session?.isActive ? "Active Live" : "Completed"}</h3>
+                    <div className="stat-card hero-card" style={{ padding: "1.25rem" }}>
+                      <span className="eyebrow">Session Status</span>
+                      <h3 style={{ fontSize: "1.4rem", margin: "0.4rem 0 0", color: session?.isActive ? "var(--success)" : "var(--text-muted)" }}>
+                        {session?.isActive ? "Active Live" : "Completed Archive"}
+                      </h3>
                     </div>
                   </div>
                 </div>
@@ -181,20 +192,20 @@ function SessionDetailModal({ sessionCode, onClose }) {
                         <thead>
                           <tr>
                             <th>Rank</th>
-                            <th>Reg No</th>
                             <th>Student Name</th>
                             <th>Score</th>
                             <th>Percentage</th>
+                            <th>Submitted At</th>
                           </tr>
                         </thead>
                         <tbody>
                           {results.map((r, i) => (
                             <tr key={r._id || i}>
                               <td>#{i + 1}</td>
-                              <td style={{ fontFamily: "monospace" }}>{r.registerNumber || "N/A"}</td>
-                              <td>{r.studentName}</td>
+                              <td>{r.studentName} {r.registerNumber ? `(${r.registerNumber})` : ""}</td>
                               <td>{r.score} / {r.totalQuestions}</td>
                               <td>{((r.score / (r.totalQuestions || 1)) * 100).toFixed(1)}%</td>
+                              <td>{formatTime(r.submittedAt)}</td>
                             </tr>
                           ))}
                         </tbody>
@@ -206,26 +217,13 @@ function SessionDetailModal({ sessionCode, onClose }) {
 
               {activeTab === "doubts" && (
                 <div className="tab-content fade-in">
-                  <h3>Doubts & Answers ({doubts.length})</h3>
+                  <h3 style={{ marginBottom: "1rem" }}>Doubts & Explanations ({doubts.length})</h3>
                   {doubts.length === 0 ? (
                     <div className="empty-state">No doubts asked during this session.</div>
                   ) : (
-                    <div className="doubts-list" style={{ display: "grid", gap: "1rem", marginTop: "1rem" }}>
+                    <div className="doubts-list" style={{ display: "grid", gap: "1rem" }}>
                       {doubts.map((d) => (
-                        <div key={d._id} className="doubt-item hero-card">
-                          <div style={{ display: "flex", justifyContent: "space-between", marginBottom: "0.5rem" }}>
-                            <strong>{d.studentName} ({d.registerNumber || "Student"})</strong>
-                            <span className={`status-pill ${d.status === "Answered" ? "active" : "pending"}`}>
-                              {d.status}
-                            </span>
-                          </div>
-                          <p style={{ margin: "0 0 0.5rem", fontSize: "0.95rem" }}><strong>Q:</strong> {d.question}</p>
-                          {d.answer ? (
-                            <div style={{ background: "var(--bg-surface)", padding: "0.75rem", borderRadius: "8px", borderLeft: "3px solid var(--primary)" }}>
-                              <strong>A ({d.teacherName || "Teacher"}):</strong> {d.answer}
-                            </div>
-                          ) : null}
-                        </div>
+                        <DoubtCard key={d._id} doubt={d} readOnly={true} />
                       ))}
                     </div>
                   )}

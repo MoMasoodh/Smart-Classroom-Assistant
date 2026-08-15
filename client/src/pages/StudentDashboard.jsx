@@ -4,8 +4,11 @@ import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import DashboardCard from "../components/DashboardCard";
 import ConfirmDialog from "../components/ConfirmDialog";
+import SessionDetailModal from "../components/SessionDetailModal";
+import Skeleton from "../components/Skeleton";
 import { useToast } from "../contexts/ToastContext";
 import api from "../services/api";
+import { formatDate } from "../utils/dateUtils";
 import {
   getStudentProfile,
   getActiveSession,
@@ -27,6 +30,11 @@ import {
   QrCode,
   LogIn,
   Radio,
+  BookOpen,
+  Calendar,
+  Clock,
+  ChevronRight,
+  History,
 } from "lucide-react";
 import "./StudentDashboard.css";
 
@@ -57,6 +65,11 @@ function StudentDashboard() {
   const [showLeaveModal, setShowLeaveModal] = useState(false);
   const [remainingSeconds, setRemainingSeconds] = useState(0);
 
+  // Recent Sessions State
+  const [recentSessions, setRecentSessions] = useState([]);
+  const [historyLoading, setHistoryLoading] = useState(true);
+  const [selectedSessionCode, setSelectedSessionCode] = useState(null);
+
   useEffect(() => {
     const currentSession = getActiveSession();
     if (currentSession) {
@@ -71,6 +84,28 @@ function StudentDashboard() {
       }
     }
   }, []);
+
+  // Fetch recent sessions history for student (latest 3)
+  useEffect(() => {
+    if (!student?.student?.registerNumber) {
+      setHistoryLoading(false);
+      return;
+    }
+
+    const fetchRecent = async () => {
+      try {
+        setHistoryLoading(true);
+        const res = await api.get("/history/student?limit=3");
+        setRecentSessions(res.data || []);
+      } catch (err) {
+        console.error("Error fetching recent student sessions:", err);
+      } finally {
+        setHistoryLoading(false);
+      }
+    };
+
+    fetchRecent();
+  }, [student?.student?.registerNumber]);
 
   // Live countdown timer effect for active student session
   useEffect(() => {
@@ -151,7 +186,6 @@ function StudentDashboard() {
     }
     return `${minutes.toString().padStart(2, "0")}:${seconds.toString().padStart(2, "0")}`;
   };
-
 
   if (!student) {
     return <Navigate to="/student-login" replace />;
@@ -264,7 +298,7 @@ function StudentDashboard() {
           {!session ? (
             <section
               className="form-card hero-card"
-              style={{ maxWidth: "600px", margin: "2rem auto", padding: "2.5rem" }}
+              style={{ maxWidth: "600px", margin: "1rem auto 2rem", padding: "2.5rem" }}
             >
               <div style={{ textAlign: "center", marginBottom: "1.5rem" }}>
                 <div
@@ -287,7 +321,7 @@ function StudentDashboard() {
                   Join Active Classroom
                 </h2>
                 <p style={{ margin: 0, color: "var(--text-muted)", fontSize: "0.95rem" }}>
-                  Enter the 6-character Session Code provided by your teacher.
+                  Enter the Session Code provided by your teacher.
                 </p>
               </div>
 
@@ -371,7 +405,6 @@ function StudentDashboard() {
                     </strong>
                     <span>Time Remaining</span>
                   </div>
-
                 </div>
               </section>
 
@@ -452,6 +485,82 @@ function StudentDashboard() {
               </div>
             </>
           )}
+
+          {/* Recent Sessions History Block */}
+          <section className="recent-sessions-section" style={{ marginTop: "2rem" }}>
+            <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center", marginBottom: "1rem" }}>
+              <div style={{ display: "flex", alignItems: "center", gap: "0.5rem" }}>
+                <History size={20} style={{ color: "var(--primary)" }} />
+                <h3 style={{ margin: 0, fontSize: "1.25rem" }}>Recent Sessions</h3>
+              </div>
+
+              <button
+                className="secondary"
+                onClick={() => navigate("/student-history")}
+                style={{ fontSize: "0.88rem", display: "flex", alignItems: "center", gap: "0.35rem" }}
+              >
+                View All History <ChevronRight size={16} />
+              </button>
+            </div>
+
+            {historyLoading ? (
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                <Skeleton height="140px" radius="16px" />
+                <Skeleton height="140px" radius="16px" />
+              </div>
+            ) : recentSessions.length === 0 ? (
+              <div className="hero-card empty-state" style={{ textAlign: "center", padding: "2rem" }}>
+                <BookOpen size={36} style={{ opacity: 0.5, marginBottom: "0.75rem" }} />
+                <h4>No sessions attended yet</h4>
+                <p style={{ margin: "0.25rem 0 1rem", fontSize: "0.9rem", color: "var(--text-muted)" }}>
+                  Join a live classroom session with your teacher's session code and your learning history will appear here.
+                </p>
+              </div>
+            ) : (
+              <div className="recent-sessions-grid" style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit, minmax(280px, 1fr))", gap: "1rem" }}>
+                {recentSessions.map((item) => (
+                  <div
+                    key={item.id || item.sessionCode}
+                    className="history-card hero-card clickable-card"
+                    style={{ padding: "1.25rem", cursor: "pointer" }}
+                    onClick={() => setSelectedSessionCode(item.sessionCode)}
+                  >
+                    <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", marginBottom: "0.5rem" }}>
+                      <div>
+                        <span className="eyebrow">{item.subject}</span>
+                        <h4 style={{ margin: "0.2rem 0 0.1rem", fontSize: "1.1rem" }}>{item.sessionName}</h4>
+                        <p style={{ margin: 0, fontSize: "0.85rem", color: "var(--text-muted)" }}>
+                          Teacher: {item.teacherName}
+                        </p>
+                      </div>
+                      <span className="date-badge" style={{ fontSize: "0.8rem", color: "var(--text-muted)" }}>
+                        {formatDate(item.createdAt)}
+                      </span>
+                    </div>
+
+                    <div className="recent-meta-grid" style={{ display: "grid", gridTemplateColumns: "1fr 1fr 1fr", gap: "0.5rem", marginTop: "0.85rem", background: "var(--bg-surface)", padding: "0.6rem 0.85rem", borderRadius: "10px", fontSize: "0.82rem" }}>
+                      <div>
+                        <span style={{ display: "block", color: "var(--text-muted)" }}>Attendance</span>
+                        <strong style={{ color: "var(--success)" }}>{item.attendancePercentage || 100}%</strong>
+                      </div>
+                      <div>
+                        <span style={{ display: "block", color: "var(--text-muted)" }}>Quiz Score</span>
+                        <strong>{item.quizScore !== null ? `${item.quizScore}/${item.totalQuestions}` : "Not Taken"}</strong>
+                      </div>
+                      <div>
+                        <span style={{ display: "block", color: "var(--text-muted)" }}>Doubts</span>
+                        <strong>{item.doubtsAsked || 0}</strong>
+                      </div>
+                    </div>
+
+                    <div style={{ display: "flex", justifyContent: "flex-end", alignItems: "center", gap: "0.25rem", marginTop: "0.75rem", fontSize: "0.82rem", color: "var(--primary)", fontWeight: 600 }}>
+                      View Details <ChevronRight size={14} />
+                    </div>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
         </main>
       </div>
 
@@ -465,6 +574,10 @@ function StudentDashboard() {
         onCancel={() => setShowLeaveModal(false)}
         danger
       />
+
+      {selectedSessionCode && (
+        <SessionDetailModal sessionCode={selectedSessionCode} onClose={() => setSelectedSessionCode(null)} />
+      )}
     </div>
   );
 }

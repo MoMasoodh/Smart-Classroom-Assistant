@@ -267,8 +267,25 @@ async function recordStudentLeave(sessionCode, studentData) {
 
 async function logTimelineEvent({ sessionCode, sessionId, eventType, title, description, metadata }) {
   try {
+    const code = sessionCode.toUpperCase();
+    const regNo = metadata?.registerNumber ? String(metadata.registerNumber).toUpperCase() : "";
+
+    // Throttle repetitive student join/leave timeline events (prevent timeline spamming within 60s)
+    if (regNo && (eventType === "STUDENT_JOINED" || eventType === "STUDENT_LEFT")) {
+      const recentDuplicate = await Timeline.findOne({
+        sessionCode: code,
+        eventType,
+        "metadata.registerNumber": regNo,
+        timestamp: { $gte: new Date(Date.now() - 60 * 1000) },
+      });
+
+      if (recentDuplicate) {
+        return null;
+      }
+    }
+
     const event = new Timeline({
-      sessionCode: sessionCode.toUpperCase(),
+      sessionCode: code,
       sessionId,
       eventType,
       title,
@@ -279,7 +296,7 @@ async function logTimelineEvent({ sessionCode, sessionId, eventType, title, desc
     await event.save();
 
     if (io) {
-      io.to(`session:${sessionCode.toUpperCase()}`).emit("timeline_event", event);
+      io.to(`session:${code}`).emit("timeline_event", event);
     }
     return event;
   } catch (err) {

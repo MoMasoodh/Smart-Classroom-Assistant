@@ -1,9 +1,29 @@
 import { useState, useRef, useEffect } from "react";
-import { Play, Pause, AlertTriangle, RotateCcw, Mic, Loader2 } from "lucide-react";
-import { getAudioUrl, formatTime } from "../utils/audioUtils";
+import { Play, Pause, AlertTriangle, RotateCcw, Mic, Radio, Loader2 } from "lucide-react";
+import { getAudioUrl } from "../utils/audioUtils";
 import "./VoicePlayer.css";
 
-function VoicePlayer({ src, duration, title = "Voice Recording" }) {
+// Decorative waveform bar pattern ratios (0.25 to 1.0)
+const WAVEFORM_BARS = [
+  0.3, 0.5, 0.8, 0.4, 0.9, 0.6, 0.3, 0.7, 1.0, 0.6,
+  0.4, 0.8, 0.9, 0.5, 0.3, 0.7, 0.9, 0.6, 0.4, 0.8,
+  0.5, 0.3, 0.7, 0.9, 0.5
+];
+
+function formatTime(seconds) {
+  if (!seconds || isNaN(seconds) || !isFinite(seconds) || seconds < 0) return "0:00";
+  const mins = Math.floor(seconds / 60);
+  const secs = Math.floor(seconds % 60);
+  return `${mins}:${secs.toString().padStart(2, "0")}`;
+}
+
+function VoicePlayer({
+  src,
+  duration = 0,
+  title = "Voice Recording",
+  variant = "student", // 'student' | 'teacher'
+  sender = "",
+}) {
   const [isPlaying, setIsPlaying] = useState(false);
   const [currentTime, setCurrentTime] = useState(0);
   const [audioDuration, setAudioDuration] = useState(duration || 0);
@@ -11,7 +31,8 @@ function VoicePlayer({ src, duration, title = "Voice Recording" }) {
   const [isLoading, setIsLoading] = useState(true);
 
   const audioRef = useRef(null);
-  const playerIdRef = useRef(`player_${Math.random().toString(36).substr(2, 9)}`);
+  const waveformRef = useRef(null);
+  const playerIdRef = useRef(`player_${Math.random().toString(36).substring(2, 9)}`);
   const resolvedUrl = getAudioUrl(src);
 
   useEffect(() => {
@@ -24,7 +45,7 @@ function VoicePlayer({ src, duration, title = "Voice Recording" }) {
     }
   }, [src, duration]);
 
-  // Single active playback listener: pause if another VoicePlayer starts playing
+  // Global play listener: Pause other voice players when one starts playing
   useEffect(() => {
     const handleGlobalPlay = (e) => {
       if (e.detail?.id !== playerIdRef.current && audioRef.current && !audioRef.current.paused) {
@@ -77,11 +98,16 @@ function VoicePlayer({ src, duration, title = "Voice Recording" }) {
     }
   };
 
-  const handleSeek = (e) => {
-    const time = Number(e.target.value);
-    setCurrentTime(time);
+  const handleWaveformClick = (e) => {
+    if (!waveformRef.current || !audioDuration) return;
+    const rect = waveformRef.current.getBoundingClientRect();
+    const clickX = e.clientX - rect.left;
+    const percentage = Math.max(0, Math.min(1, clickX / rect.width));
+    const seekTime = percentage * audioDuration;
+
+    setCurrentTime(seekTime);
     if (audioRef.current) {
-      audioRef.current.currentTime = time;
+      audioRef.current.currentTime = seekTime;
     }
   };
 
@@ -96,9 +122,13 @@ function VoicePlayer({ src, duration, title = "Voice Recording" }) {
   if (!src) return null;
 
   const displayDuration = audioDuration || duration || 0;
+  const progressRatio = displayDuration > 0 ? Math.min(1, currentTime / displayDuration) : 0;
+  const activeBarIndex = Math.floor(progressRatio * WAVEFORM_BARS.length);
+
+  const isTeacher = variant === "teacher" || title.toLowerCase().includes("teacher");
 
   return (
-    <div className="voice-player-card">
+    <div className={`voice-bubble-card ${isTeacher ? "voice-teacher-variant" : "voice-student-variant"}`}>
       <audio
         ref={audioRef}
         src={resolvedUrl}
@@ -120,53 +150,64 @@ function VoicePlayer({ src, duration, title = "Voice Recording" }) {
       />
 
       {hasError ? (
-        <div className="voice-player-error">
-          <AlertTriangle size={15} />
-          <span>Unable to load recording</span>
+        <div className="voice-bubble-error">
+          <AlertTriangle size={16} />
+          <span>Unable to play recording</span>
           <button type="button" className="retry-btn" onClick={handleRetry}>
             <RotateCcw size={12} /> Retry
           </button>
         </div>
       ) : (
-        <div className="voice-player-body">
+        <div className="voice-bubble-content">
           <button
             type="button"
-            className="play-pause-btn"
+            className="voice-play-button"
             onClick={handleTogglePlay}
             disabled={isLoading}
             title={isPlaying ? "Pause" : "Play"}
           >
             {isLoading ? (
-              <Loader2 size={18} className="spin-icon" />
+              <Loader2 size={16} className="spin-icon" />
             ) : isPlaying ? (
-              <Pause size={18} />
+              <Pause size={16} fill="currentColor" />
             ) : (
-              <Play size={18} style={{ marginLeft: "2px" }} />
+              <Play size={16} fill="currentColor" style={{ marginLeft: "2px" }} />
             )}
           </button>
 
-          <div className="voice-player-track">
-            <div className="track-info">
-              <span className="track-title">
-                <Mic size={12} /> {title}
+          <div className="voice-bubble-main">
+            <div className="voice-bubble-header">
+              <span className="voice-title">
+                {isTeacher ? <Radio size={13} /> : <Mic size={13} />}
+                {sender || (isTeacher ? "Teacher Voice Answer" : "Student Voice Doubt")}
               </span>
-              <span className="track-time">
-                {isLoading && !displayDuration ? (
-                  "Loading audio..."
-                ) : (
-                  `${formatTime(currentTime)} / ${formatTime(displayDuration)}`
-                )}
+              <span className="voice-duration">
+                {isLoading && !displayDuration
+                  ? "Loading..."
+                  : `${formatTime(currentTime)} / ${formatTime(displayDuration)}`}
               </span>
             </div>
-            <input
-              type="range"
-              min="0"
-              max={displayDuration || 100}
-              step="0.1"
-              value={currentTime}
-              onChange={handleSeek}
-              className="voice-seekbar"
-            />
+
+            {/* Interactive Waveform Bar Visualizer */}
+            <div
+              className="voice-waveform-container"
+              ref={waveformRef}
+              onClick={handleWaveformClick}
+              title="Click to seek position"
+            >
+              {WAVEFORM_BARS.map((heightRatio, idx) => {
+                const isPlayed = idx <= activeBarIndex && displayDuration > 0;
+                return (
+                  <div
+                    key={idx}
+                    className={`waveform-bar ${isPlayed ? "played" : "unplayed"}`}
+                    style={{
+                      height: `${Math.round(heightRatio * 100)}%`,
+                    }}
+                  />
+                );
+              })}
+            </div>
           </div>
         </div>
       )}
