@@ -29,6 +29,20 @@ function SessionDetailModal({ sessionCode, onClose }) {
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
+    document.body.style.overflow = "hidden";
+    const handleKeyDown = (e) => {
+      if (e.key === "Escape") {
+        onClose();
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
+  }, [onClose]);
+
+  useEffect(() => {
     if (!sessionCode) return;
     const fetchDetails = async () => {
       try {
@@ -51,6 +65,23 @@ function SessionDetailModal({ sessionCode, onClose }) {
   const doubts = data?.doubts || [];
   const results = data?.results || [];
   const timelineEvents = data?.timelineEvents || [];
+  const quiz = data?.quiz;
+
+  if (loading) {
+    return (
+      <div
+        className="modal-backdrop fade-in"
+        onClick={(e) => {
+          if (e.target === e.currentTarget) onClose();
+        }}
+      >
+        <div className="session-detail-modal hero-card" style={{ maxWidth: "500px", padding: "2.5rem", textAlign: "center" }}>
+          <BookOpen size={36} style={{ color: "var(--primary)", animation: "spin 2s linear infinite", marginBottom: "1rem" }} />
+          <h3>Loading Session Report...</h3>
+        </div>
+      </div>
+    );
+  }
 
   const exportFullSessionPDF = () => {
     if (!session) return;
@@ -74,7 +105,12 @@ function SessionDetailModal({ sessionCode, onClose }) {
   const voiceDoubtsCount = doubts.filter((d) => d.type === "voice").length;
 
   return (
-    <div className="modal-backdrop fade-in">
+    <div
+      className="modal-backdrop fade-in"
+      onClick={(e) => {
+        if (e.target === e.currentTarget) onClose();
+      }}
+    >
       <div className="session-detail-modal hero-card" style={{ maxWidth: "900px", width: "95%" }}>
         <div className="modal-header" style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start", paddingBottom: "1rem", borderBottom: "1px solid var(--border)" }}>
           <div>

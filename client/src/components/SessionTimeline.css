@@ -1,6 +1,9 @@
 .timeline-container {
   margin-top: 1.5rem;
   padding: 1.5rem;
+  background: var(--surface);
+  border: 1px solid var(--border);
+  border-radius: var(--radius-lg);
 }
 
 .timeline-header {
@@ -48,7 +51,7 @@
 
 .timeline-node {
   z-index: 1;
-  background: var(--bg-card);
+  background: var(--surface);
   border: 2px solid var(--border);
   border-radius: 50%;
   width: 30px;
@@ -60,7 +63,7 @@
 }
 
 .timeline-content {
-  background: var(--bg-surface);
+  background: var(--surface-alt);
   border: 1px solid var(--border);
   border-radius: 10px;
   padding: 0.75rem 1rem;
@@ -69,7 +72,7 @@
 
 .timeline-title {
   font-size: 0.95rem;
-  color: var(--text-heading);
+  color: var(--text);
 }
 
 .timeline-desc {
@@ -89,7 +92,7 @@
   text-align: center;
   padding: 2rem;
   color: var(--text-muted);
-  background: var(--bg-surface);
+  background: var(--surface-alt);
   border-radius: 10px;
   border: 1px dashed var(--border);
 }

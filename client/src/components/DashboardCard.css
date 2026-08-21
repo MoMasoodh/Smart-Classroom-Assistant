@@ -1,18 +1,19 @@
 .dashboard-card {
     position: relative;
     overflow: hidden;
-    background: rgba(255, 255, 255, 0.95);
-    border: 1px solid rgba(219, 227, 240, 0.8);
-    border-radius: var(--radius);
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-radius: var(--radius-lg);
     padding: 1.2rem;
-    box-shadow: var(--shadow);
+    box-shadow: var(--shadow-md);
     cursor: pointer;
-    transition: transform 0.2s ease, box-shadow 0.2s ease;
+    transition: transform 0.2s ease, box-shadow 0.2s ease, border-color 0.2s ease;
 }
 
 .dashboard-card:hover {
     transform: translateY(-6px);
-    box-shadow: 0 26px 50px rgba(15, 23, 42, 0.12);
+    box-shadow: var(--shadow-lg);
+    border-color: var(--primary-border);
 }
 
 .card-icon {
@@ -21,13 +22,40 @@
 
 .dashboard-card h2 {
     margin: 1rem 0 0.45rem;
+    color: var(--text);
 }
 
 .dashboard-card p {
     margin: 0;
-    color: var(--muted);
+    color: var(--text-muted);
 }
 
-.dashboard-card-footer {
-    margin-top: 0.9rem;
+.card-badge-pill {
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+    background: #ef4444;
+    color: #ffffff;
+    font-size: 0.72rem;
+    font-weight: 800;
+    letter-spacing: 0.05em;
+    padding: 0.25rem 0.65rem;
+    border-radius: 20px;
+    box-shadow: 0 0 10px rgba(239, 68, 68, 0.4);
+    animation: pulse-badge 2s infinite ease-in-out;
+}
+
+@keyframes pulse-badge {
+    0% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0.5);
+    }
+    70% {
+        transform: scale(1.05);
+        box-shadow: 0 0 0 8px rgba(239, 68, 68, 0);
+    }
+    100% {
+        transform: scale(1);
+        box-shadow: 0 0 0 0 rgba(239, 68, 68, 0);
+    }
 }

@@ -12,13 +12,18 @@ function ConfirmDialog({
   danger = true,
 }) {
   useEffect(() => {
+    if (!open) return;
+    document.body.style.overflow = "hidden";
     const handleKeyDown = (e) => {
       if (e.key === "Escape" && open) {
         onCancel();
       }
     };
     window.addEventListener("keydown", handleKeyDown);
-    return () => window.removeEventListener("keydown", handleKeyDown);
+    return () => {
+      window.removeEventListener("keydown", handleKeyDown);
+      document.body.style.overflow = "";
+    };
   }, [open, onCancel]);
 
   if (!open) return null;

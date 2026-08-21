@@ -362,7 +362,6 @@ function ManageSession() {
 
     try {
       setQuizLoading(true);
-      setError("");
 
       const response = await api.post("/ai/generate-quiz", {
         topic: quizTopic,
@@ -376,10 +375,9 @@ function ManageSession() {
       setSavedQuizId(null);
       setGeneratedQuestions(normalizeQuestions(parsedQuestions));
       setToast("Quiz Generated Successfully");
-      addToast("AI Quiz questions generated successfully via Gemini!", "success");
+      addToast("Quiz questions generated successfully!", "success");
     } catch (requestError) {
       const msg = requestError.response?.data?.message || "Unable to generate quiz.";
-      setError(msg);
       addToast(msg, "error");
     } finally {
       setQuizLoading(false);
@@ -527,7 +525,8 @@ function ManageSession() {
     quizSectionRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
   };
 
-  const isSessionClosed = session?.isActive === false;
+  const isExpired = session?.expiresAt && new Date(session.expiresAt) <= new Date();
+  const isSessionClosed = session?.isActive === false || isExpired;
   const hasQuiz = Boolean(quiz || savedQuizId);
   const quizStatus = quiz?.isActive ? "Published Live" : hasQuiz ? "Saved Draft" : "No Quiz";
 

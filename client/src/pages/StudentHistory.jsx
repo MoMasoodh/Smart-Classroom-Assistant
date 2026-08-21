@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import SessionDetailModal from "../components/SessionDetailModal";
+import QuizRevisionModal from "../components/QuizRevisionModal";
 import Skeleton from "../components/Skeleton";
 import api from "../services/api";
 import { formatDate, formatTime, isThisWeek, isThisMonth } from "../utils/dateUtils";
@@ -17,15 +18,19 @@ import {
   Search,
   CheckCircle,
   Filter,
+  Sparkles,
 } from "lucide-react";
 import "./StudentHistory.css";
+import { useStudentSessionSocket } from "../hooks/useStudentSessionSocket";
 
 function StudentHistory() {
+  useStudentSessionSocket();
   const [history, setHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [searchQuery, setSearchQuery] = useState("");
   const [timeFilter, setTimeFilter] = useState("all"); // 'all' | 'week' | 'month' | 'older'
   const [selectedSessionCode, setSelectedSessionCode] = useState(null);
+  const [revisionSessionCode, setRevisionSessionCode] = useState(null);
 
   useEffect(() => {
     fetchHistory();
@@ -207,15 +212,31 @@ function StudentHistory() {
                     className="history-card-footer"
                     style={{
                       display: "flex",
-                      justify: "space-between",
+                      justifyContent: "space-between",
                       alignItems: "center",
                       marginTop: "1rem",
                       fontSize: "0.85rem",
                       color: "var(--primary)",
                       fontWeight: 600,
+                      gap: "0.5rem",
                     }}
                   >
-                    <span>Click to view detailed session report & teacher answers</span>
+                    <span>Click to view detailed session report</span>
+                    
+                    {item.quizScore !== null ? (
+                      <button
+                        type="button"
+                        className="secondary"
+                        style={{ padding: "0.35rem 0.75rem", fontSize: "0.8rem", gap: "0.35rem" }}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          setRevisionSessionCode(item.sessionCode);
+                        }}
+                      >
+                        <Sparkles size={13} color="var(--primary)" /> Revisit Quiz Questions
+                      </button>
+                    ) : null}
+                    
                     <ChevronRight size={16} />
                   </div>
                 </div>
@@ -225,6 +246,10 @@ function StudentHistory() {
 
           {selectedSessionCode && (
             <SessionDetailModal sessionCode={selectedSessionCode} onClose={() => setSelectedSessionCode(null)} />
+          )}
+
+          {revisionSessionCode && (
+            <QuizRevisionModal sessionCode={revisionSessionCode} onClose={() => setRevisionSessionCode(null)} />
           )}
         </main>
       </div>

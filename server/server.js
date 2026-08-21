@@ -18,6 +18,7 @@ const timelineRoutes = require("./routes/timelineRoutes");
 const historyRoutes = require("./routes/historyRoutes");
 const profileRoutes = require("./routes/profileRoutes");
 const { initSocket } = require("./services/socketService");
+const { autoCloseExpiredSessions } = require("./services/sessionCleanupService");
 
 const app = express();
 const server = http.createServer(app);
@@ -92,7 +93,11 @@ const MONGO_URI = process.env.MONGO_URI || "mongodb://127.0.0.1:27017/qr-doubt-s
 
 mongoose
   .connect(MONGO_URI)
-  .then(() => console.log("MongoDB Connected"))
+  .then(() => {
+    console.log("MongoDB Connected");
+    autoCloseExpiredSessions();
+    setInterval(autoCloseExpiredSessions, 30000);
+  })
   .catch((err) => console.error("MongoDB Connection Error:", err));
 
 server.listen(PORT, () => {

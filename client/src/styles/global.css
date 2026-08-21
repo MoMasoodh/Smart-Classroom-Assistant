@@ -297,6 +297,11 @@ input, textarea, select {
   transition: border-color var(--transition-fast), box-shadow var(--transition-fast);
 }
 
+select option {
+  background: var(--surface);
+  color: var(--text);
+}
+
 input:focus, textarea:focus, select:focus {
   outline: none;
   border-color: var(--primary);
@@ -502,17 +507,22 @@ input:focus, textarea:focus, select:focus {
 .modal-backdrop, .modal-overlay {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 1000;
   display: grid;
   place-items: center;
-  background: rgba(15, 23, 42, 0.5);
+  background: rgba(15, 23, 42, 0.6);
   backdrop-filter: blur(6px);
-  padding: 1rem;
+  padding: 1.5rem 1rem;
   animation: fadeIn 0.2s ease;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 .modal-card {
   width: min(100%, 540px);
+  max-height: 90vh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
   border-radius: var(--radius-xl);
   background: var(--surface);
   padding: 1.75rem;

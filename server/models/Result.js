@@ -36,7 +36,18 @@ const resultSchema = new mongoose.Schema({
   submittedAt: {
     type: Date,
     default: Date.now,
-  }
+  },
+
+  answers: [
+    {
+      questionIndex: Number,
+      questionText: String,
+      options: [String],
+      selectedOption: String,
+      correctAnswer: String,
+      isCorrect: Boolean,
+    },
+  ],
 });
 
 resultSchema.index(

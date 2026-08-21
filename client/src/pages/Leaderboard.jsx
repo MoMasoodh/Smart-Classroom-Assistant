@@ -7,7 +7,10 @@ import api from "../services/api";
 import { getStudentProfile, getActiveSession, getStudent } from "../services/storage";
 import { Trophy, Award, Medal, Search, ArrowLeft, Users, Zap } from "lucide-react";
 
+import { useStudentSessionSocket } from "../hooks/useStudentSessionSocket";
+
 function Leaderboard() {
+  useStudentSessionSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const student = getStudent();

@@ -45,8 +45,22 @@ router.post("/leave", async (req, res) => {
 router.get("/session/:code", async (req, res) => {
   try {
     const sessionCode = req.params.code.toUpperCase();
-    const students = await Attendance.find({ sessionCode }).sort({ status: 1, joinTime: -1 });
+    const rawStudents = await Attendance.find({ sessionCode }).sort({ status: 1, joinTime: -1 });
 
+    const studentMap = new Map();
+    rawStudents.forEach((student) => {
+      const key = student.registerNumber ? student.registerNumber.toUpperCase() : String(student.studentId || student._id);
+      if (!studentMap.has(key)) {
+        studentMap.set(key, student);
+      } else {
+        const existing = studentMap.get(key);
+        if (existing.status !== "Joined" && student.status === "Joined") {
+          studentMap.set(key, student);
+        }
+      }
+    });
+
+    const students = Array.from(studentMap.values());
     const activeCount = students.filter((s) => s.status === "Joined").length;
     const totalAttendanceCount = students.length;
 

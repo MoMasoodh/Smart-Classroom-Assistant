@@ -18,7 +18,8 @@ router.post("/", requireStudentAuth, async (req, res) => {
       registerNumber,
       score,
       totalQuestions,
-      studentId
+      studentId,
+      answers,
     } = req.body;
 
     if (!sessionCode || !studentName) {
@@ -119,7 +120,8 @@ router.post("/", requireStudentAuth, async (req, res) => {
       studentName: finalStudentName,
       registerNumber: normalizedRegNo,
       score,
-      totalQuestions
+      totalQuestions,
+      answers: Array.isArray(answers) ? answers : [],
     });
 
     const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
@@ -225,6 +227,41 @@ router.get("/check/:sessionCode/:studentName", requireStudentAuth, async (req, r
 
   }
 
+});
+
+// ===========================================
+// Quiz Revision Details for Student
+// ===========================================
+router.get("/revision/:sessionCode", requireStudentAuth, async (req, res) => {
+  try {
+    const code = req.params.sessionCode.toUpperCase();
+    const regNo = (req.query.registerNumber || req.student?.registerNumber || "").toUpperCase();
+    const studentId = req.student?.id;
+
+    const [quiz, result] = await Promise.all([
+      Quiz.findOne({ sessionCode: code }),
+      Result.findOne({
+        sessionCode: code,
+        $or: [{ studentId }, { registerNumber: regNo }].filter(Boolean),
+      }),
+    ]);
+
+    if (!quiz) {
+      return res.status(404).json({ message: "Quiz data not found for this session." });
+    }
+
+    res.json({
+      quizTitle: quiz.title || `${code} Quiz`,
+      sessionCode: code,
+      quiz,
+      result: result || null,
+      submitted: Boolean(result),
+      score: result ? result.score : 0,
+      totalQuestions: result ? result.totalQuestions : (quiz.questions?.length || 0),
+    });
+  } catch (error) {
+    res.status(500).json({ message: error.message });
+  }
 });
 
 module.exports = router;

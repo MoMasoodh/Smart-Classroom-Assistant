@@ -1,6 +1,6 @@
 import "./DashboardCard.css";
 
-function DashboardCard({ icon, title, description, onClick, footer }) {
+function DashboardCard({ icon, title, description, onClick, footer, badge }) {
 
     return (
 
@@ -8,6 +8,7 @@ function DashboardCard({ icon, title, description, onClick, footer }) {
             className="dashboard-card"
             onClick={onClick}
         >
+            {badge ? <div className="card-badge-pill">{badge}</div> : null}
 
             <div className="card-icon">
                 {icon}

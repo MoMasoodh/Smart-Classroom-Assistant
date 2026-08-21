@@ -17,11 +17,12 @@
 .login-card h1 {
     margin: 0.55rem 0 0;
     font-size: 2rem;
+    color: var(--text);
 }
 
 .login-subtitle {
     margin: 0.5rem 0 1.2rem;
-    color: var(--muted);
+    color: var(--text-muted);
 }
 
 .auth-form {
@@ -31,7 +32,7 @@
 
 .auth-footer {
     margin: 1rem 0 0;
-    color: var(--muted);
+    color: var(--text-muted);
 }
 
 .auth-footer a {

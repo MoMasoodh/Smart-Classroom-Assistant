@@ -9,6 +9,7 @@ const { requireTeacherAuth, requireAuth } = require("../middleware/authMiddlewar
 
 const Attendance = require("../models/Attendance");
 const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
+const { autoCloseExpiredSessions } = require("../services/sessionCleanupService");
 
 function generateSessionCode(subject) {
   const prefix = subject.substring(0, 4).toUpperCase();
@@ -82,6 +83,7 @@ router.post("/", requireTeacherAuth, async (req, res) => {
 
 router.get("/my-sessions", requireTeacherAuth, async (req, res) => {
   try {
+    await autoCloseExpiredSessions();
     const sessions = await Session.find({ teacherId: req.teacher.id }).sort({ createdAt: -1 });
     res.status(200).json(sessions);
   } catch (error) {
@@ -91,6 +93,7 @@ router.get("/my-sessions", requireTeacherAuth, async (req, res) => {
 
 router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
   try {
+    await autoCloseExpiredSessions();
     const session = await Session.findOne({ _id: req.params.id, teacherId: req.teacher.id });
 
     if (!session) {
@@ -130,6 +133,7 @@ router.get("/my-sessions/:id", requireTeacherAuth, async (req, res) => {
 
 router.get("/:code", requireAuth, async (req, res) => {
   try {
+    await autoCloseExpiredSessions();
     const session = await Session.findOne({
       sessionCode: req.params.code.toUpperCase(),
     });

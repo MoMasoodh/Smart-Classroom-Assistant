@@ -9,7 +9,10 @@ import { getStudentProfile, getActiveSession, getStudent } from "../services/sto
 import { HelpCircle, PlusCircle, ArrowLeft } from "lucide-react";
 import "./MyDoubts.css";
 
+import { useStudentSessionSocket } from "../hooks/useStudentSessionSocket";
+
 function MyDoubts() {
+  useStudentSessionSocket();
   const navigate = useNavigate();
   const location = useLocation();
 

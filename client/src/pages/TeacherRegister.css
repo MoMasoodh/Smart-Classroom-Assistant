@@ -17,11 +17,12 @@
 .register-card h1 {
   margin: 0.55rem 0 0;
   font-size: 2rem;
+  color: var(--text);
 }
 
 .auth-copy {
   margin: 0.55rem 0 1.25rem;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .auth-form {
@@ -31,7 +32,7 @@
 
 .auth-footer {
   margin: 1rem 0 0;
-  color: var(--muted);
+  color: var(--text-muted);
 }
 
 .auth-footer a {

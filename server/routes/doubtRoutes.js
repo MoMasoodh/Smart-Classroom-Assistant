@@ -1,9 +1,10 @@
 const express = require("express");
 const router = express.Router();
+const jwt = require("jsonwebtoken");
 const Doubt = require("../models/Doubt");
 const Session = require("../models/Session");
 const Student = require("../models/Student");
-const { requireTeacherAuth, requireAuth, requireStudentAuth } = require("../middleware/authMiddleware");
+const { requireTeacherAuth, requireAuth, requireStudentAuth, getBearerToken } = require("../middleware/authMiddleware");
 const voiceUpload = require("../middleware/voiceUpload");
 const { logTimelineEvent, broadcastSessionUpdate } = require("../services/socketService");
 
@@ -11,10 +12,24 @@ async function getOwnedSession(sessionCode, teacherId) {
   return Session.findOne({ sessionCode, teacherId });
 }
 
-// Get Answered Doubts (Classmate feed masks identity to "Anonymous Student", Teacher view shows full identity)
+// Get Answered Doubts (Classmate feed masks identity to "Anonymous Student", Teacher view & own doubt show full identity)
 router.get("/session/:sessionCode/answered", async (req, res) => {
   try {
     const isTeacherView = req.query.teacherView === "true";
+    const token = getBearerToken(req.headers.authorization || "");
+    let studentRegNo = null;
+
+    if (token) {
+      try {
+        const decoded = jwt.verify(token, process.env.JWT_SECRET || "dev-secret-key");
+        if (decoded && decoded.registerNumber) {
+          studentRegNo = decoded.registerNumber.toUpperCase();
+        }
+      } catch {
+        // Ignore token error for public view
+      }
+    }
+
     const doubts = await Doubt.find({
       sessionCode: req.params.sessionCode.toUpperCase(),
       status: "Answered",
@@ -23,8 +38,11 @@ router.get("/session/:sessionCode/answered", async (req, res) => {
     const formattedDoubts = doubts.map((d) => {
       const obj = d.toObject();
       if (!isTeacherView) {
-        obj.studentName = "Anonymous Student";
-        obj.registerNumber = "";
+        const isOwn = studentRegNo && obj.registerNumber && obj.registerNumber.toUpperCase() === studentRegNo;
+        if (!isOwn) {
+          obj.studentName = "Anonymous Student";
+          obj.registerNumber = "";
+        }
       }
       return obj;
     });

@@ -21,7 +21,8 @@ function verifyToken(req, res, next, expectedRole) {
     }
 
     if (expectedRole === "teacher") {
-      if (decoded.role !== "teacher") {
+      const isTeacher = decoded.role === "teacher" || (!decoded.role && !decoded.registerNumber);
+      if (!isTeacher) {
         return res.status(403).json({ message: "Forbidden - Teacher credentials required" });
       }
       req.teacher = decoded;
@@ -30,7 +31,8 @@ function verifyToken(req, res, next, expectedRole) {
     }
 
     if (expectedRole === "student") {
-      if (decoded.role !== "student" || !decoded.registerNumber) {
+      const isStudent = decoded.role === "student" || (Boolean(decoded.registerNumber) && decoded.role !== "teacher");
+      if (!isStudent) {
         return res.status(403).json({ message: "Forbidden - Student credentials required" });
       }
       req.student = decoded;

@@ -8,9 +8,11 @@ const Quiz = require("../models/Quiz");
 const Timeline = require("../models/Timeline");
 const { requireTeacherAuth, requireStudentAuth, requireAuth } = require("../middleware/authMiddleware");
 const { dedupeResults, dedupeTimelineEvents, summarizeAttendances } = require("../utils/sessionReport");
+const { autoCloseExpiredSessions } = require("../services/sessionCleanupService");
 
 // Helper function to build student session history items
 async function buildStudentHistory(regNo, limit = 0) {
+  await autoCloseExpiredSessions();
   // Find all attendance records for student
   const attendances = await Attendance.find({ registerNumber: regNo }).sort({ joinTime: -1 });
 
@@ -133,6 +135,7 @@ router.get("/student/:registerNumber", requireAuth, async (req, res) => {
 // Teacher Session History (Recent, Archived, Completed)
 router.get("/teacher", requireTeacherAuth, async (req, res) => {
   try {
+    await autoCloseExpiredSessions();
     const limit = req.query.limit ? Number(req.query.limit) : 0;
     let query = Session.find({ teacherId: req.teacher.id }).sort({ createdAt: -1 });
     if (limit > 0) {

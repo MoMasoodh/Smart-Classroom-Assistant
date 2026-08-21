@@ -8,7 +8,10 @@ import api from "../services/api";
 import { getActiveSession, getStudentProfile, getStudent } from "../services/storage";
 import { MessageSquare, Search, ArrowLeft } from "lucide-react";
 
+import { useStudentSessionSocket } from "../hooks/useStudentSessionSocket";
+
 function Discussion() {
+  useStudentSessionSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const student = getStudent();

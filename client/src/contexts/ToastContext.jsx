@@ -13,12 +13,20 @@ export function ToastProvider({ children }) {
 
   const addToast = useCallback((message, type = "info", duration = 4000) => {
     if (!message) return;
-    const id = Date.now() + Math.random().toString(36).substring(2, 9);
-    setToasts((prevToasts) => [...prevToasts, { id, message, type }]);
 
-    if (duration > 0) {
+    let newId = null;
+    setToasts((prevToasts) => {
+      const isDuplicate = prevToasts.some(
+        (t) => t.message === message && t.type === type
+      );
+      if (isDuplicate) return prevToasts;
+      newId = Date.now() + Math.random().toString(36).substring(2, 9);
+      return [...prevToasts, { id: newId, message, type }];
+    });
+
+    if (duration > 0 && newId) {
       setTimeout(() => {
-        removeToast(id);
+        removeToast(newId);
       }, duration);
     }
   }, [removeToast]);

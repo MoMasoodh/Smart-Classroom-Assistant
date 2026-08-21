@@ -11,7 +11,10 @@ import { useToast } from "../contexts/ToastContext";
 import { HelpCircle, Send, ArrowLeft, Sparkles, Mic, FileText } from "lucide-react";
 import "./AskDoubt.css";
 
+import { useStudentSessionSocket } from "../hooks/useStudentSessionSocket";
+
 function AskDoubt() {
+  useStudentSessionSocket();
   const navigate = useNavigate();
   const location = useLocation();
   const { addToast } = useToast();

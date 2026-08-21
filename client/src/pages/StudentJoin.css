@@ -15,12 +15,13 @@
 }
 
 .join-card h1 {
-    margin: 0.5rem 0 0;
+    margin: 0.55rem 0 0;
     font-size: 2rem;
+    color: var(--text);
 }
 
 .join-card p {
-    color: var(--muted);
+    color: var(--text-muted);
 }
 
 .join-form {
@@ -35,7 +36,8 @@
     margin-top: 1rem;
     padding: 1rem;
     border-radius: 16px;
-    background: rgba(239, 244, 255, 0.8);
+    background: var(--primary-light);
+    border: 1px solid var(--primary-border);
 }
 
 @media (max-width: 900px) {

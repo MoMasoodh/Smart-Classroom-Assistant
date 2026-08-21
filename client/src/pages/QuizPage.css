@@ -8,11 +8,11 @@
   align-items: center;
   flex-wrap: wrap;
   gap: 1rem;
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--surface);
   border-radius: 20px;
   padding: 1.25rem 1.5rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(219, 227, 240, 0.9);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
   margin-bottom: 1.5rem;
   position: sticky;
   top: 1rem;
@@ -28,15 +28,15 @@
   font-weight: 800;
   padding: 0.5rem 1rem;
   border-radius: 999px;
-  background: rgba(37, 99, 235, 0.1);
-  color: var(--primary-strong);
+  background: var(--primary-light);
+  color: var(--primary);
   letter-spacing: 0.05em;
   transition: all 0.3s ease;
 }
 
 .quiz-timer-pill.warning {
-  background: rgba(239, 68, 68, 0.15);
-  color: #ef4444;
+  background: var(--danger-bg);
+  color: var(--danger);
   animation: timer-pulse 1s infinite alternate;
 }
 
@@ -64,11 +64,11 @@
 }
 
 .quiz-card-modern {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--surface);
   border-radius: 24px;
   padding: 2rem;
-  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.06);
-  border: 1px solid rgba(219, 227, 240, 0.9);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
   transition: all 0.25s ease;
 }
 
@@ -84,8 +84,8 @@
   font-weight: 700;
   text-transform: uppercase;
   letter-spacing: 0.08em;
-  color: var(--primary-strong);
-  background: rgba(37, 99, 235, 0.1);
+  color: var(--primary);
+  background: var(--primary-light);
   padding: 0.35rem 0.75rem;
   border-radius: 999px;
 }
@@ -110,8 +110,8 @@
   gap: 1rem;
   padding: 1.1rem 1.25rem;
   border-radius: 16px;
-  background: #f8fafc;
-  border: 2px solid #e2e8f0;
+  background: var(--surface-alt);
+  border: 2px solid var(--border);
   cursor: pointer;
   transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
   font-size: 1.05rem;
@@ -122,44 +122,44 @@
 
 .quiz-option-pill:hover {
   border-color: var(--primary);
-  background: rgba(37, 99, 235, 0.04);
+  background: var(--primary-light);
   transform: translateX(4px);
 }
 
 .quiz-option-pill.selected {
-  border-color: var(--primary-strong);
-  background: rgba(37, 99, 235, 0.08);
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.15);
+  border-color: var(--primary);
+  background: var(--primary-light);
+  box-shadow: 0 4px 12px rgba(79, 70, 229, 0.2);
 }
 
 .quiz-option-badge {
   width: 32px;
   height: 32px;
   border-radius: 10px;
-  background: white;
-  border: 1px solid #cbd5e1;
+  background: var(--surface);
+  border: 1px solid var(--border);
   display: flex;
   align-items: center;
   justify-content: center;
   font-weight: 700;
   font-size: 0.9rem;
-  color: var(--muted);
+  color: var(--text-muted);
   flex-shrink: 0;
 }
 
 .quiz-option-pill.selected .quiz-option-badge {
-  background: var(--primary-strong);
+  background: var(--primary);
   color: white;
-  border-color: var(--primary-strong);
+  border-color: var(--primary);
 }
 
 /* Palette Side Panel */
 .quiz-palette-card {
-  background: rgba(255, 255, 255, 0.95);
+  background: var(--surface);
   border-radius: 24px;
   padding: 1.5rem;
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.05);
-  border: 1px solid rgba(219, 227, 240, 0.9);
+  box-shadow: var(--shadow-md);
+  border: 1px solid var(--border);
 }
 
 .quiz-palette-grid {
@@ -172,11 +172,11 @@
 .quiz-palette-btn {
   aspect-ratio: 1;
   border-radius: 12px;
-  border: 1px solid #cbd5e1;
-  background: #f8fafc;
+  border: 1px solid var(--border);
+  background: var(--surface-alt);
   font-weight: 700;
   font-size: 0.95rem;
-  color: var(--muted);
+  color: var(--text-muted);
   cursor: pointer;
   transition: all 0.2s ease;
   display: flex;
@@ -190,14 +190,14 @@
 }
 
 .quiz-palette-btn.answered {
-  background: #10b981;
+  background: var(--success);
   color: white;
-  border-color: #059669;
+  border-color: var(--success);
 }
 
 .quiz-palette-btn.active {
   box-shadow: 0 0 0 3px rgba(79, 70, 229, 0.3);
-  border-color: var(--primary-strong);
+  border-color: var(--primary);
   transform: scale(1.08);
 }
 
@@ -215,12 +215,14 @@
 }
 
 .modal-card {
-  background: white;
+  background: var(--surface);
+  color: var(--text);
+  border: 1px solid var(--border);
   border-radius: 24px;
   padding: 2rem;
   max-width: 500px;
   width: 100%;
-  box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.25);
+  box-shadow: var(--shadow-xl);
   animation: modal-appear 0.25s ease-out;
 }
 

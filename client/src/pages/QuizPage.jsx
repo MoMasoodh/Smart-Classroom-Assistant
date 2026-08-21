@@ -4,8 +4,10 @@ import Sidebar from "../components/Sidebar";
 import Header from "../components/Header";
 import Loading from "../components/Loading";
 import Toast from "../components/Toast";
+import QuizRevisionModal from "../components/QuizRevisionModal";
 import api from "../services/api";
 import { getActiveSession, getStudentProfile, getStudent } from "../services/storage";
+import { initSocket } from "../services/socket";
 import {
   Clock,
   CheckCircle2,
@@ -16,10 +18,15 @@ import {
   Send,
   HelpCircle,
   Award,
+  Sparkles,
+  RefreshCw,
 } from "lucide-react";
 import "./QuizPage.css";
 
+import { useStudentSessionSocket } from "../hooks/useStudentSessionSocket";
+
 function QuizPage() {
+  useStudentSessionSocket();
   const navigate = useNavigate();
   const location = useLocation();
 
@@ -40,12 +47,13 @@ function QuizPage() {
   const [submitting, setSubmitting] = useState(false);
   const [submittedResult, setSubmittedResult] = useState(null);
   const [showReviewModal, setShowReviewModal] = useState(false);
+  const [showRevisionModal, setShowRevisionModal] = useState(false);
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
-  const loadQuiz = useCallback(async () => {
+  const loadQuiz = useCallback(async (isSilent = false) => {
     try {
-      setLoading(true);
+      if (!isSilent) setLoading(true);
       setError("");
 
       const checkRes = await api.get(
@@ -61,14 +69,14 @@ function QuizPage() {
           totalQuestions: totalQ,
           percentage: pct,
         });
-        setLoading(false);
+        if (!isSilent) setLoading(false);
         return;
       }
 
       const sessionResponse = await api.get(`/sessions/${sessionCode}`);
       if (sessionResponse.data.isActive === false) {
         setError("This classroom session has been closed by the teacher.");
-        setLoading(false);
+        if (!isSilent) setLoading(false);
         return;
       }
 
@@ -76,40 +84,82 @@ function QuizPage() {
       const quizData = response.data;
       setQuiz(quizData);
 
-      let initialAnswers = Array(quizData.questions.length).fill("");
+      let savedDraft = [];
       try {
-        const rawDraft = localStorage.getItem(draftKey);
-        if (rawDraft) {
-          const parsed = JSON.parse(rawDraft);
-          if (Array.isArray(parsed) && parsed.length === quizData.questions.length) {
-            initialAnswers = parsed;
-          }
+        const storedDraft = localStorage.getItem(draftKey);
+        if (storedDraft) {
+          savedDraft = JSON.parse(storedDraft);
         }
       } catch {
-        // Ignore storage read errors
+        savedDraft = [];
+      }
+
+      const initialAnswers = new Array(quizData.questions.length).fill("");
+      if (Array.isArray(savedDraft)) {
+        savedDraft.forEach((val, idx) => {
+          if (idx < initialAnswers.length && typeof val === "string") {
+            initialAnswers[idx] = val;
+          }
+        });
       }
 
       setAnswers(initialAnswers);
-      setRemainingSeconds(Number(quizData.duration || 5) * 60);
-
+      const totalSeconds = (quizData.timeLimitMinutes || 5) * 60;
+      setRemainingSeconds(totalSeconds);
     } catch (err) {
-      setError(err.response?.data?.message || "Quiz is currently unavailable.");
+      console.error("Error loading quiz:", err);
+      setError(err.response?.data?.message || "Failed to load quiz.");
     } finally {
-      setLoading(false);
+      if (!isSilent) setLoading(false);
     }
   }, [sessionCode, studentName, registerNumber, draftKey]);
 
   useEffect(() => {
-    if (sessionCode) {
-      loadQuiz();
-    } else {
+    if (!sessionCode) {
+      setError("No active session code found. Please join a session first.");
       setLoading(false);
-      setError("No active session code found.");
+      return;
     }
+    loadQuiz();
   }, [sessionCode, loadQuiz]);
 
+  // Socket listener to auto-load quiz silently when teacher publishes it live
   useEffect(() => {
-    if (!quiz || submittedResult || loading || error) return;
+    if (!sessionCode) return;
+
+    const studentId = student?.student?._id || student?.student?.id;
+    const studentReg = student?.student?.registerNumber || registerNumber;
+    const studentFullName = student?.student?.fullName || studentName;
+
+    const studentData = {
+      studentId,
+      registerNumber: studentReg,
+      fullName: studentFullName,
+    };
+
+    const socket = initSocket(sessionCode, "student", studentData);
+
+    const handleSessionUpdated = () => {
+      loadQuiz(true);
+    };
+
+    const handleTimelineEvent = (ev) => {
+      if (ev.eventType === "QUIZ_STARTED") {
+        loadQuiz(true);
+      }
+    };
+
+    socket.on("session_updated", handleSessionUpdated);
+    socket.on("timeline_event", handleTimelineEvent);
+
+    return () => {
+      socket.off("session_updated", handleSessionUpdated);
+      socket.off("timeline_event", handleTimelineEvent);
+    };
+  }, [sessionCode, loadQuiz, registerNumber, studentName]);
+
+  useEffect(() => {
+    if (!quiz || submittedResult || remainingSeconds <= 0) return;
 
     const timer = setInterval(() => {
       setRemainingSeconds((prev) => {
@@ -123,7 +173,7 @@ function QuizPage() {
     }, 1000);
 
     return () => clearInterval(timer);
-  }, [quiz, submittedResult, loading, error]);
+  }, [quiz, submittedResult, remainingSeconds]);
 
   if (!student) {
     return <Navigate to="/student-login" replace />;
@@ -156,12 +206,22 @@ function QuizPage() {
       const totalQuestions = quiz.questions.length;
       const percentage = Math.round((score / totalQuestions) * 100);
 
+      const answersArray = quiz.questions.map((q, i) => ({
+        questionIndex: i,
+        questionText: q.question,
+        options: q.options || [],
+        selectedOption: answers[i] || "",
+        correctAnswer: q.correctAnswer,
+        isCorrect: answers[i] === q.correctAnswer,
+      }));
+
       await api.post("/results", {
         sessionCode,
         studentName,
         registerNumber,
         score,
         totalQuestions,
+        answers: answersArray,
       });
 
       try {
@@ -214,16 +274,28 @@ function QuizPage() {
           {loading && <Loading label="Preparing quiz..." />}
 
           {error && !loading && (
-            <div className="error-state hero-card">
-              <strong style={{ color: "var(--danger)", fontSize: "1.1rem" }}>Quiz Unavailable</strong>
-              <p style={{ margin: "0.5rem 0 0", color: "var(--text-muted)" }}>{error}</p>
-              <button
-                className="secondary"
-                onClick={() => navigate("/student-dashboard")}
-                style={{ marginTop: "1rem" }}
-              >
-                <ArrowLeft size={16} /> Back to Dashboard
-              </button>
+            <div className="error-state hero-card" style={{ maxWidth: "550px", margin: "2rem auto", textAlign: "center", padding: "2rem" }}>
+              <strong style={{ color: "var(--danger)", fontSize: "1.2rem", display: "block", marginBottom: "0.5rem" }}>
+                Quiz Unavailable
+              </strong>
+              <p style={{ margin: "0 0 1.5rem", color: "var(--text-muted)", fontSize: "0.95rem" }}>{error}</p>
+
+              <div className="form-actions" style={{ justifyContent: "center", gap: "0.75rem" }}>
+                {sessionCode ? (
+                  <button
+                    className="primary-button"
+                    onClick={loadQuiz}
+                  >
+                    <RefreshCw size={16} /> Check Again
+                  </button>
+                ) : null}
+                <button
+                  className="secondary"
+                  onClick={() => navigate("/student-dashboard")}
+                >
+                  <ArrowLeft size={16} /> Back to Dashboard
+                </button>
+              </div>
             </div>
           )}
 
@@ -398,7 +470,14 @@ function QuizPage() {
                 </div>
               </div>
 
-              <div className="form-actions" style={{ justifyContent: "center" }}>
+              <div className="form-actions" style={{ justifyContent: "center", flexWrap: "wrap", gap: "0.75rem" }}>
+                <button
+                  className="secondary"
+                  onClick={() => setShowRevisionModal(true)}
+                  style={{ background: "var(--primary-light)", color: "var(--primary)", borderColor: "var(--primary-border)" }}
+                >
+                  <Sparkles size={18} /> Revisit Quiz Questions
+                </button>
                 <button
                   className="primary-button"
                   onClick={() =>
@@ -417,6 +496,10 @@ function QuizPage() {
                 </button>
               </div>
             </section>
+          )}
+
+          {showRevisionModal && (
+            <QuizRevisionModal sessionCode={sessionCode} onClose={() => setShowRevisionModal(false)} />
           )}
 
           {/* Submission Review Modal */}

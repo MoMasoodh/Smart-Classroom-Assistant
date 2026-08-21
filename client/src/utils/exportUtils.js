@@ -1,6 +1,6 @@
 import * as XLSX from "xlsx";
 import jsPDF from "jspdf";
-import "jspdf-autotable";
+import autoTable from "jspdf-autotable";
 
 // CSV Export
 export const exportToCSV = (filename, headers, rows) => {
@@ -39,8 +39,8 @@ export const exportToPDF = (title, headers, rows, filename) => {
   doc.setTextColor(100, 100, 100);
   doc.text(`Generated on ${new Date().toLocaleString()} • Smart Classroom Assistant`, 14, 27);
 
-  // Table
-  doc.autoTable({
+  // Table using jspdf-autotable
+  autoTable(doc, {
     startY: 34,
     head: [headers],
     body: rows,

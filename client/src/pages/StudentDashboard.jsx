@@ -69,6 +69,33 @@ function StudentDashboard() {
   const [recentSessions, setRecentSessions] = useState([]);
   const [historyLoading, setHistoryLoading] = useState(true);
   const [selectedSessionCode, setSelectedSessionCode] = useState(null);
+  const [isQuizActive, setIsQuizActive] = useState(false);
+
+  // Check if active quiz exists for current session
+  const checkActiveQuiz = async (code) => {
+    if (!code) {
+      setIsQuizActive(false);
+      return;
+    }
+    try {
+      const res = await api.get(`/quizzes/session/${code}`);
+      if (res.data && res.data.isActive) {
+        setIsQuizActive(true);
+      } else {
+        setIsQuizActive(false);
+      }
+    } catch {
+      setIsQuizActive(false);
+    }
+  };
+
+  useEffect(() => {
+    if (session?.sessionCode) {
+      checkActiveQuiz(session.sessionCode);
+    } else {
+      setIsQuizActive(false);
+    }
+  }, [session?.sessionCode]);
 
   useEffect(() => {
     const currentSession = getActiveSession();
@@ -129,13 +156,17 @@ function StudentDashboard() {
 
   // Socket & Heartbeat synchronization for Active Student Session
   useEffect(() => {
-    if (!session?.sessionCode || !student?.student) return;
+    const sessionCode = session?.sessionCode;
+    const registerNumber = student?.student?.registerNumber;
+    const studentId = student?.student?._id || student?.student?.id;
+    const fullName = student?.student?.fullName;
 
-    const sessionCode = session.sessionCode;
+    if (!sessionCode || !registerNumber) return;
+
     const studentData = {
-      studentId: student.student._id || student.student.id,
-      registerNumber: student.student.registerNumber,
-      fullName: student.student.fullName,
+      studentId,
+      registerNumber,
+      fullName,
     };
 
     const socket = initSocket(sessionCode, "student", studentData);
@@ -150,6 +181,7 @@ function StudentDashboard() {
         } else {
           setSession(res.data);
           setActiveSession(res.data);
+          checkActiveQuiz(sessionCode);
         }
       }).catch(() => {});
     };
@@ -157,6 +189,7 @@ function StudentDashboard() {
     const handleTimelineEvent = (ev) => {
       if (ev.eventType === "QUIZ_STARTED") {
         addToast(`Quiz Alert: "${ev.title}" is now LIVE!`, "warning");
+        setIsQuizActive(true);
       }
     };
 
@@ -165,16 +198,15 @@ function StudentDashboard() {
 
     // Send heartbeat every 15s
     const heartbeatTimer = setInterval(() => {
-      sendHeartbeat(sessionCode, student.student.registerNumber);
+      sendHeartbeat(sessionCode, registerNumber);
     }, 15000);
 
     return () => {
       clearInterval(heartbeatTimer);
       socket.off("session_updated", handleSessionUpdated);
       socket.off("timeline_event", handleTimelineEvent);
-      leaveSocketSession(sessionCode, studentData);
     };
-  }, [session?.sessionCode, student]);
+  }, [session?.sessionCode, student?.student?.registerNumber, student?.student?._id, student?.student?.id, student?.student?.fullName]);
 
   const formatCountdown = (secs) => {
     if (secs <= 0) return "EXPIRED";
@@ -250,6 +282,13 @@ function StudentDashboard() {
   };
 
   const confirmLeaveSession = () => {
+    if (session?.sessionCode && student?.student) {
+      leaveSocketSession(session.sessionCode, {
+        studentId: student.student._id || student.student.id,
+        registerNumber: student.student.registerNumber,
+        fullName: student.student.fullName,
+      });
+    }
     clearActiveSession();
     clearStudentProfile();
     setSession(null);
@@ -408,6 +447,21 @@ function StudentDashboard() {
                 </div>
               </section>
 
+              {isQuizActive && (
+                <div style={{ background: "var(--warning-bg)", border: "1px solid var(--warning-border)", borderRadius: "14px", padding: "1rem 1.25rem", marginBottom: "1.5rem", display: "flex", justifyContent: "space-between", alignItems: "center", flexWrap: "wrap", gap: "1rem" }}>
+                  <div style={{ display: "flex", alignItems: "center", gap: "0.75rem" }}>
+                    <Sparkles size={24} style={{ color: "var(--warning)" }} />
+                    <div>
+                      <strong style={{ display: "block", color: "var(--text)", fontSize: "1.05rem" }}>Live Quiz Alert!</strong>
+                      <span style={{ fontSize: "0.88rem", color: "var(--text-muted)" }}>A quiz is currently LIVE for this classroom session. Click below to participate now!</span>
+                    </div>
+                  </div>
+                  <button className="primary-button" onClick={handleQuizClick} style={{ padding: "0.6rem 1.2rem", fontSize: "0.9rem" }}>
+                    <FileText size={16} /> Start Quiz Now
+                  </button>
+                </div>
+              )}
+
               <div className="dashboard-grid">
                 <DashboardCard
                   icon={<HelpCircle size={26} />}
@@ -457,8 +511,13 @@ function StudentDashboard() {
                 <DashboardCard
                   icon={<FileText size={26} />}
                   title="Quiz"
-                  description="Participate in real-time topic quizzes published by the teacher."
+                  description={
+                    isQuizActive
+                      ? "🔴 LIVE QUIZ ACTIVE! Click here to attempt."
+                      : "Participate in real-time topic quizzes published by the teacher."
+                  }
                   onClick={handleQuizClick}
+                  badge={isQuizActive ? "LIVE NOW" : null}
                 />
 
                 <DashboardCard

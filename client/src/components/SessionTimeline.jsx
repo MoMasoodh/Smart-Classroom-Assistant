@@ -1,5 +1,6 @@
 import { useEffect, useState } from "react";
 import api from "../services/api";
+import { getSocket } from "../services/socket";
 import {
   Clock,
   PlayCircle,
@@ -55,6 +56,22 @@ function SessionTimeline({ sessionCode, refreshKey }) {
 
   useEffect(() => {
     fetchTimeline();
+
+    // Listen to real-time socket events for live timeline updates
+    const socket = getSocket();
+    if (socket) {
+      const handleLiveUpdate = () => {
+        fetchTimeline();
+      };
+
+      socket.on("timeline_event", handleLiveUpdate);
+      socket.on("session_updated", handleLiveUpdate);
+
+      return () => {
+        socket.off("timeline_event", handleLiveUpdate);
+        socket.off("session_updated", handleLiveUpdate);
+      };
+    }
   }, [sessionCode, refreshKey]);
 
   // Filter out repetitive consecutive join/leave events for the same student
@@ -69,7 +86,7 @@ function SessionTimeline({ sessionCode, refreshKey }) {
         (ev.metadata?.registerNumber && prev.metadata?.registerNumber && ev.metadata.registerNumber === prev.metadata.registerNumber) ||
         ev.title === prev.title;
       const sameType = ev.eventType === prev.eventType;
-      
+
       if (sameStudent && sameType) {
         return false;
       }
@@ -83,7 +100,9 @@ function SessionTimeline({ sessionCode, refreshKey }) {
         <div className="eyebrow" style={{ display: "inline-flex", alignItems: "center", gap: "0.4rem" }}>
           <Clock size={14} /> Session Timeline
         </div>
-        <h3 style={{ margin: "0.25rem 0 0", fontSize: "1.25rem" }}>Real-time Chronological Activity Stream</h3>
+        <h3 style={{ margin: "0.25rem 0 0", fontSize: "1.25rem", color: "var(--text)" }}>
+          Real-time Chronological Activity Stream
+        </h3>
       </div>
 
       {loading && filteredEvents.length === 0 ? (
