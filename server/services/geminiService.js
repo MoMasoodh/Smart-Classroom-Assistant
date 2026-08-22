@@ -104,15 +104,17 @@ function generateFallbackQuiz(topic, numberOfQuestions = 5) {
   return JSON.stringify(questions, null, 2);
 }
 
-async function generateAnswer(question) {
+async function generateAnswer(question, subject = "") {
   try {
     const prompt = `
-You are an experienced classroom teacher.
+You are an expert classroom teacher explaining concepts to a student.
 
-Answer the following student doubt clearly, accurately, and in simple language.
+${subject ? `Subject / Topic: ${subject}` : ""}
 
-Student Question:
-${question}
+Student Question / Speech Transcription:
+"${question}"
+
+Provide a clear, highly accurate, and detailed educational response directly answering the student's question about ${subject || "the topic"}. Make sure the explanation is accurate for the subject context.
 `;
     return await callGenerativeAI(prompt);
   } catch (err) {

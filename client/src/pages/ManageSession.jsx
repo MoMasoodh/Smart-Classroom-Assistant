@@ -30,13 +30,17 @@ import {
   Clock,
 } from "lucide-react";
 
+const generateQuestionId = () => `q-${Date.now()}-${Math.random().toString(36).substring(2, 9)}`;
+
 const createBlankQuestion = () => ({
+  id: generateQuestionId(),
   question: "",
   options: ["", "", "", ""],
   correctAnswer: "",
 });
 
 const normalizeQuestion = (question = {}) => ({
+  id: question.id || generateQuestionId(),
   question: question.question || "",
   options: [0, 1, 2, 3].map((index) => question.options?.[index] || ""),
   correctAnswer: question.correctAnswer || "",
@@ -834,7 +838,7 @@ function ManageSession() {
                 {generatedQuestions.length > 0 ? (
                   <div className="page-section" style={{ display: "grid", gap: "1.25rem", marginTop: "1rem" }}>
                     {generatedQuestions.map((question, questionIndex) => (
-                      <section className="hero-card" key={`${questionIndex}-${question.question || "question"}`}>
+                      <section className="hero-card" key={question.id || `q-${questionIndex}`}>
                         <div className="form-actions" style={{ justifyContent: "space-between", margin: 0, paddingBottom: "0.75rem", borderBottom: "1px solid var(--border)" }}>
                           <span className="eyebrow">Question #{questionIndex + 1}</span>
                           <button

@@ -10,7 +10,7 @@ const {
 router.post("/generate-answer", async (req, res) => {
   try {
 
-    const { question } = req.body;
+    const { question, subject } = req.body;
 
     if (!question) {
       return res.status(400).json({
@@ -18,7 +18,7 @@ router.post("/generate-answer", async (req, res) => {
       });
     }
 
-    const answer = await generateAnswer(question);
+    const answer = await generateAnswer(question, subject || "");
 
     res.json({
       success: true,

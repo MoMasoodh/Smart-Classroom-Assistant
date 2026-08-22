@@ -13,6 +13,11 @@ function VoiceRecorder({ onRecordComplete, onClear }) {
   const audioChunksRef = useRef([]);
   const timerRef = useRef(null);
   const recognitionRef = useRef(null);
+  const transcriptionRef = useRef("");
+
+  useEffect(() => {
+    transcriptionRef.current = transcription;
+  }, [transcription]);
 
   useEffect(() => {
     const SpeechRecognition =
@@ -30,7 +35,9 @@ function VoiceRecorder({ onRecordComplete, onClear }) {
         for (let i = 0; i < event.results.length; i++) {
           currentTranscript += event.results[i][0].transcript + " ";
         }
-        setTranscription(currentTranscript.trim());
+        const text = currentTranscript.trim();
+        transcriptionRef.current = text;
+        setTranscription(text);
       };
 
       recognition.onerror = (err) => {
@@ -83,7 +90,8 @@ function VoiceRecorder({ onRecordComplete, onClear }) {
           return;
         }
 
-        console.log(`[VoiceRecorder] Success: Recorded ${audioBlob.size} bytes, MIME: ${finalMime}, Duration: ${recordingTime}s`);
+        const latestText = transcriptionRef.current || transcription;
+        console.log(`[VoiceRecorder] Success: Recorded ${audioBlob.size} bytes, Transcription: "${latestText}"`);
         const url = URL.createObjectURL(audioBlob);
         setAudioUrl(url);
 
@@ -93,7 +101,7 @@ function VoiceRecorder({ onRecordComplete, onClear }) {
         if (onRecordComplete) {
           onRecordComplete({
             blob: audioBlob,
-            transcription,
+            transcription: latestText,
             audioUrl: url,
             duration: recordingTime,
             mimeType: finalMime,
@@ -141,6 +149,7 @@ function VoiceRecorder({ onRecordComplete, onClear }) {
     setAudioUrl(null);
     setRecordingTime(0);
     setTranscription("");
+    transcriptionRef.current = "";
     audioChunksRef.current = [];
 
     if (onClear) {

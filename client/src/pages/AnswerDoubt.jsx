@@ -30,7 +30,10 @@ function AnswerDoubt() {
   const [error, setError] = useState("");
   const [toast, setToast] = useState("");
 
-  const questionPrompt = doubt?.type === "voice" ? (doubt?.transcription || doubt?.question) : doubt?.question;
+  const questionPrompt =
+    doubt?.type === "voice"
+      ? (doubt?.transcription && doubt.transcription !== "Voice Doubt Recording" ? doubt.transcription : doubt?.question)
+      : doubt?.question;
 
   useEffect(() => {
     if (autoGenerate && questionPrompt) {
@@ -45,6 +48,7 @@ function AnswerDoubt() {
       setError("");
       const response = await api.post("/ai/generate-answer", {
         question: questionPrompt,
+        subject: doubt?.subject || "",
       });
       setAnswer(response.data.answer || "");
       setToast("AI Answer Generated");

@@ -257,6 +257,14 @@ router.post("/voice", requireStudentAuth, voiceUpload.single("audio"), async (re
 
     const audioUrl = `/uploads/audio/${req.file.filename}`;
 
+    const cleanTranscription =
+      transcription && transcription.trim() !== "" && transcription !== "Voice Doubt Recording"
+        ? transcription.trim()
+        : "";
+
+    const finalTranscription = cleanTranscription || `Voice question regarding ${subject}`;
+    const finalQuestion = cleanTranscription || `🎤 [Voice Doubt - ${subject}]`;
+
     const doubt = new Doubt({
       studentId: resolvedStudentId,
       studentName: finalStudentName,
@@ -267,8 +275,8 @@ router.post("/voice", requireStudentAuth, voiceUpload.single("audio"), async (re
       audioUrl,
       audioDuration: Number(audioDuration) || 0,
       audioMimeType: audioMimeType || req.file.mimetype || "audio/webm",
-      transcription: transcription || "Voice Doubt Recording",
-      question: transcription || "🎤 [Voice Doubt]",
+      transcription: finalTranscription,
+      question: finalQuestion,
     });
 
     const savedDoubt = await doubt.save();
@@ -278,7 +286,7 @@ router.post("/voice", requireStudentAuth, voiceUpload.single("audio"), async (re
       sessionId: session._id,
       eventType: "DOUBT_ASKED",
       title: `${studentName} Asked a Voice Doubt`,
-      description: transcription || "Voice Doubt Recording",
+      description: finalTranscription,
       metadata: { doubtId: savedDoubt._id, registerNumber, studentName, isVoice: true },
     });
 
