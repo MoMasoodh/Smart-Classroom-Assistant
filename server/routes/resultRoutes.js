@@ -66,10 +66,10 @@ router.post("/", requireStudentAuth, async (req, res) => {
       });
     }
 
-    // Check Quiz
+    // Check Quiz (prioritize active quiz, then latest)
     const quiz = await Quiz.findOne({
       sessionCode: code
-    });
+    }).sort({ isActive: -1, createdAt: -1 });
 
     if (!quiz) {
       return res.status(404).json({
@@ -239,7 +239,7 @@ router.get("/revision/:sessionCode", requireStudentAuth, async (req, res) => {
     const studentId = req.student?.id;
 
     const [quiz, result] = await Promise.all([
-      Quiz.findOne({ sessionCode: code }),
+      Quiz.findOne({ sessionCode: code }).sort({ createdAt: -1 }),
       Result.findOne({
         sessionCode: code,
         $or: [{ studentId }, { registerNumber: regNo }].filter(Boolean),

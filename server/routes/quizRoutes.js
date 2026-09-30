@@ -31,16 +31,30 @@ router.post("/", requireTeacherAuth, async (req, res) => {
       });
     }
 
-    const quiz = new Quiz({
+    // Upsert quiz for this session so we don't create multiple conflicting duplicates
+    const quiz = await Quiz.findOneAndUpdate(
+      { sessionCode },
+      {
+        sessionCode,
+        title,
+        duration: Number(duration) || 5,
+        questions,
+        isActive: false,
+      },
+      {
+        new: true,
+        upsert: true,
+        setDefaultsOnInsert: true,
+      }
+    );
+
+    // Clean up any other duplicates for this session
+    await Quiz.deleteMany({
       sessionCode,
-      title,
-      duration,
-      questions
+      _id: { $ne: quiz._id },
     });
 
-    const savedQuiz = await quiz.save();
-
-    res.status(201).json(savedQuiz);
+    res.status(201).json(quiz);
 
   } catch (error) {
 
@@ -84,10 +98,10 @@ router.get("/session/:sessionCode", async (req, res) => {
       });
     }
 
-    // Find quiz
+    // Find quiz (prioritize active quiz, then latest created)
     const quiz = await Quiz.findOne({
       sessionCode: req.params.sessionCode
-    });
+    }).sort({ isActive: -1, createdAt: -1 });
 
     if (!quiz) {
       return res.status(404).json({
@@ -95,7 +109,28 @@ router.get("/session/:sessionCode", async (req, res) => {
       });
     }
 
-    // Check if teacher started the quiz
+    // Check if requester is the teacher of this session
+    let isTeacher = false;
+    const authHeader = req.headers.authorization;
+    if (authHeader && authHeader.startsWith("Bearer ")) {
+      try {
+        const token = authHeader.split(" ")[1];
+        const jwt = require("jsonwebtoken");
+        const decoded = jwt.verify(token, process.env.JWT_SECRET);
+        if (decoded && decoded.id && session.teacherId && session.teacherId.toString() === decoded.id.toString()) {
+          isTeacher = true;
+        }
+      } catch (e) {
+        // Not a teacher token or token invalid; continue as student
+      }
+    }
+
+    // Teachers can always view their session quiz even when not started
+    if (isTeacher) {
+      return res.json(quiz);
+    }
+
+    // Check if teacher started the quiz for students
     if (!quiz.isActive) {
       return res.status(400).json({
         message: "Quiz has not started yet"
@@ -181,6 +216,12 @@ router.put("/:id/start", requireTeacherAuth, async (req, res) => {
         message: "Session not found"
       });
     }
+
+    // Deactivate any other quizzes for the same session to avoid collisions
+    await Quiz.updateMany(
+      { sessionCode: quiz.sessionCode, _id: { $ne: req.params.id } },
+      { isActive: false }
+    );
 
     const updatedQuiz = await Quiz.findByIdAndUpdate(
       req.params.id,

@@ -104,7 +104,7 @@ function QuizPage() {
       }
 
       setAnswers(initialAnswers);
-      const totalSeconds = (quizData.timeLimitMinutes || 5) * 60;
+      const totalSeconds = (quizData.duration || quizData.timeLimitMinutes || 5) * 60;
       setRemainingSeconds(totalSeconds);
     } catch (err) {
       console.error("Error loading quiz:", err);
@@ -122,6 +122,16 @@ function QuizPage() {
     }
     loadQuiz();
   }, [sessionCode, loadQuiz]);
+
+  // Auto re-check silently if waiting for the teacher to start the quiz
+  useEffect(() => {
+    if (error === "Quiz has not started yet" && sessionCode && !quiz) {
+      const interval = setInterval(() => {
+        loadQuiz(true);
+      }, 5000);
+      return () => clearInterval(interval);
+    }
+  }, [error, sessionCode, quiz, loadQuiz]);
 
   // Socket listener to auto-load quiz silently when teacher publishes it live
   useEffect(() => {

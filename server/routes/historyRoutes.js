@@ -222,7 +222,7 @@ router.get("/session-details/:sessionCode", requireAuth, async (req, res) => {
       Doubt.find({ sessionCode }).sort({ createdAt: -1 }),
       Result.find({ sessionCode }).sort({ score: -1 }),
       Timeline.find({ sessionCode }).sort({ timestamp: 1 }),
-      Quiz.findOne({ sessionCode }),
+      Quiz.findOne({ sessionCode }).sort({ createdAt: -1 }),
     ]);
 
     const normalizedAttendances = summarizeAttendances(attendances.map((attendance) => attendance.toObject()));
